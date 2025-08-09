@@ -3,7 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { Card, Text, Provider as PaperProvider, FAB } from 'react-native-paper';
 import { useLedgerStore } from '../store/ledgerStore';
 import PersonModal from '../components/PersonModal';
-import { upsertPerson } from '../db/repo';
+import { upsertPerson, getPersonById } from '../db/repo';
 import { Person } from '../models/types';
 
 export default function Dashboard() {
@@ -18,8 +18,10 @@ export default function Dashboard() {
     await refresh();
   };
 
-  const handleEditPerson = (person: any) => {
-    setEditingPerson(person);
+  const handleEditPerson = async (personSummary: any) => {
+    // Fetch full person data including contact and notes
+    const fullPerson = await getPersonById(personSummary.id);
+    setEditingPerson(fullPerson);
     setPersonModalVisible(true);
   };
 
