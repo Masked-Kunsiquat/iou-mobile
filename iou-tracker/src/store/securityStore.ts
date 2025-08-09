@@ -20,6 +20,8 @@ export type SecurityState = {
   setHydrated: (v: boolean) => void;
 };
 
+const MAX_SESSION_MS = 86_400_000; // 24 hours
+
 export const useSecurityStore = create<SecurityState>()(
   persist(
     (set, get) => ({
@@ -28,7 +30,12 @@ export const useSecurityStore = create<SecurityState>()(
       lastAuthAt: null,
       hydrated: false,
       setEnabled: (v) => set({ biometricsEnabled: v }),
-      setSessionMs: (ms) => set({ sessionMs: ms }),
+      setSessionMs: (ms) => {
+        // why: prevent negative/huge values that break gating logic
+        const value = Number.isFinite(ms) ? ms : 0;
+        const clamped = Math.max(0, Math.min(value, MAX_SESSION_MS));
+        set({ sessionMs: clamped });
+      },
       markAuthed: () => set({ lastAuthAt: Date.now() }),
       clearSession: () => set({ lastAuthAt: null }),
       setHydrated: (v) => set({ hydrated: v }),
