@@ -1,0 +1,8 @@
+{
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "files.exclude": {
+    "**/node_modules/**/tsconfig.json": true
+  },
+  "typescript.validate.enable": true,
+  "typescript.enablePromptUseWorkspaceTsdk": true
+}

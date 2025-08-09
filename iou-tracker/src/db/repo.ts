@@ -40,13 +40,34 @@ export async function getDebtWithBalance(debtId: string) {
   return { ...debt, balance };
 }
 
+// Update this function in src/db/repo.ts
+
 export async function deletePerson(id: string) {
   const db = await openDB();
-  // Check if person has any debts
-  const debts = await db.getAllAsync('SELECT id FROM debts WHERE personId=?', [id]);
-  if (debts.length > 0) {
-    throw new Error('Cannot delete person with existing debts');
+  // Check if person has any OPEN debts (not settled ones)
+  const openDebts = await db.getAllAsync(
+    'SELECT id FROM debts WHERE personId=? AND status="open"', 
+    [id]
+  );
+  if (openDebts.length > 0) {
+    throw new Error('Cannot delete person with existing open debts');
   }
+  
+  // Delete all settled debts and their payments first
+  const allDebts = await db.getAllAsync<{id: string}>(
+    'SELECT id FROM debts WHERE personId=?', 
+    [id]
+  );
+  
+  // Delete payments for each debt
+  for (const debt of allDebts) {
+    await db.runAsync('DELETE FROM payments WHERE debtId=?', [debt.id]);
+  }
+  
+  // Delete all debts for this person
+  await db.runAsync('DELETE FROM debts WHERE personId=?', [id]);
+  
+  // Finally delete the person
   await db.runAsync('DELETE FROM people WHERE id=?', [id]);
 }
 
