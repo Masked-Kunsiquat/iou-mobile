@@ -40,13 +40,34 @@ export async function getDebtWithBalance(debtId: string) {
   return { ...debt, balance };
 }
 
+// Update this function in src/db/repo.ts
+
 export async function deletePerson(id: string) {
   const db = await openDB();
-  // Check if person has any debts
-  const debts = await db.getAllAsync('SELECT id FROM debts WHERE personId=?', [id]);
-  if (debts.length > 0) {
-    throw new Error('Cannot delete person with existing debts');
+  // Check if person has any OPEN debts (not settled ones)
+  const openDebts = await db.getAllAsync(
+    'SELECT id FROM debts WHERE personId=? AND status="open"', 
+    [id]
+  );
+  if (openDebts.length > 0) {
+    throw new Error('Cannot delete person with existing open debts');
   }
+  
+  // Delete all settled debts and their payments first
+  const allDebts = await db.getAllAsync<{id: string}>(
+    'SELECT id FROM debts WHERE personId=?', 
+    [id]
+  );
+  
+  // Delete payments for each debt
+  for (const debt of allDebts) {
+    await db.runAsync('DELETE FROM payments WHERE debtId=?', [debt.id]);
+  }
+  
+  // Delete all debts for this person
+  await db.runAsync('DELETE FROM debts WHERE personId=?', [id]);
+  
+  // Finally delete the person
   await db.runAsync('DELETE FROM people WHERE id=?', [id]);
 }
 
@@ -150,4 +171,51 @@ export async function dashboardTotals() {
     totalUOM: toCentsStr(totalUOM), 
     net: toCentsStr(net) 
   };
+}
+
+export async function updateDebt(
+  id: string, 
+  updates: Partial<Pick<Debt, 'description' | 'amountOriginal' | 'dueAt'>>
+) {
+  const db = await openDB();
+  const setClause = [];
+  const values = [];
+  
+  if (updates.description !== undefined) {
+    setClause.push('description = ?');
+    values.push(updates.description);
+  }
+  if (updates.amountOriginal !== undefined) {
+    setClause.push('amountOriginal = ?');
+    values.push(updates.amountOriginal);
+  }
+  if (updates.dueAt !== undefined) {
+    setClause.push('dueAt = ?');
+    values.push(updates.dueAt);
+  }
+  
+  if (setClause.length === 0) return;
+  
+  values.push(id);
+  await db.runAsync(
+    `UPDATE debts SET ${setClause.join(', ')} WHERE id = ?`,
+    values
+  );
+}
+
+export async function deleteDebt(id: string) {
+  const db = await openDB();
+  // Delete payments first due to foreign key constraint
+  await db.runAsync('DELETE FROM payments WHERE debtId = ?', [id]);
+  await db.runAsync('DELETE FROM debts WHERE id = ?', [id]);
+}
+
+export async function markDebtSettled(id: string) {
+  const db = await openDB();
+  await db.runAsync('UPDATE debts SET status = ? WHERE id = ?', ['settled', id]);
+}
+
+export async function getDebtById(id: string): Promise<Debt | null> {
+  const db = await openDB();
+  return await db.getFirstAsync<Debt>('SELECT * FROM debts WHERE id = ?', [id]);
 }
