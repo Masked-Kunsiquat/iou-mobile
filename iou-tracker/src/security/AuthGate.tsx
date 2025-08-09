@@ -9,9 +9,10 @@ import { useSecurityStore } from '../store/securityStore';
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const colors = useThemeColors();
   const { biometricsEnabled, sessionMs, lastAuthAt, markAuthed, hydrated } = useSecurityStore();
-  const [locked, setLocked] = useState<boolean>(biometricsEnabled);
+  const [locked, setLocked] = useState<boolean>(false); // avoid pre-hydration lock
   const [authing, setAuthing] = useState(false);
   const appState = useRef(AppState.currentState);
+  const isHydrated = useSecurityStore.persist?.hasHydrated?.() ?? hydrated;
 
   const tryAuth = async (prompt?: string) => {
     if (authing) return;
@@ -33,12 +34,12 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   // On mount: only lock if enabled & session expired (post-hydration)
   useEffect(() => {
-    if (!hydrated) return; // wait for persisted state
+    if (!isHydrated) return; // wait for persisted state
     if (!biometricsEnabled) {
       setLocked(false);
       return;
     }
-    const fresh = Boolean(lastAuthAt && Date.now() - lastAuthAt < sessionMs);
+    const fresh = Boolean(lastAuthAt != null && Date.now() - lastAuthAt < sessionMs);
     if (fresh) {
       setLocked(false);
     } else {
@@ -46,17 +47,17 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       tryAuth('Authenticate to continue');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [biometricsEnabled, sessionMs, lastAuthAt, hydrated]);
+  }, [biometricsEnabled, sessionMs, lastAuthAt, isHydrated]);
 
   // On resume: if enabled and session expired, lock and prompt
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       const prev = appState.current;
       appState.current = state;
-      if (!biometricsEnabled || !hydrated) return;
+      if (!biometricsEnabled || !isHydrated) return;
 
       if ((prev === 'background' || prev === 'inactive') && state === 'active') {
-        const expired = !lastAuthAt || Date.now() - lastAuthAt >= sessionMs;
+        const expired = lastAuthAt == null || Date.now() - lastAuthAt >= sessionMs;
         if (expired) {
           setLocked(true);
           tryAuth('Re-authenticate');
@@ -64,9 +65,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       }
     });
     return () => sub.remove();
-  }, [biometricsEnabled, sessionMs, lastAuthAt, hydrated]);
+  }, [biometricsEnabled, sessionMs, lastAuthAt, isHydrated]);
 
-  if (!hydrated) {
+  if (!isHydrated) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator />
