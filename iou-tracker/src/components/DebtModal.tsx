@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Portal, TextInput, Button, Text, RadioButton, Chip } from 'react-native-paper';
 import { View, ScrollView } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import ThemedPersonSelect from './ThemedPersonSelect';
 import { useLedgerStore } from '../store/ledgerStore';
 import { DebtType } from '../models/types';
 import { useThemeColors } from '../theme/ThemeProvider';
@@ -138,6 +138,7 @@ export default function DebtModal({
           <Text variant="titleMedium" style={{ marginBottom: 8, color: colors.textPrimary }}>
             Person
           </Text>
+
           {fixedPersonId ? (
             <View
               style={{
@@ -150,33 +151,18 @@ export default function DebtModal({
                 backgroundColor: colors.surfaceVariant,
               }}
             >
-              <Text style={{ color: colors.textPrimary }}>{lockedPersonName}</Text>
+              <Text style={{ color: colors.textPrimary }}>
+                {people.find(p => p.id === fixedPersonId)?.name ?? 'Selected person'}
+              </Text>
             </View>
           ) : (
-            <View
-              style={{
-                borderWidth: 1,
-                borderColor: colors.outline,
-                borderRadius: 4,
-                marginBottom: 16,
-                backgroundColor: colors.surfaceVariant,
-              }}
-            >
-              <Picker
-                selectedValue={personId}
-                onValueChange={setPersonId}
-                style={{ height: 50, color: colors.textPrimary }}
-                dropdownIconColor={colors.textPrimary}
-              >
-                {people.map((person) => (
-                  <Picker.Item
-                    key={person.id}
-                    label={person.name}
-                    value={person.id}
-                    color={colors.textPrimary}
-                  />
-                ))}
-              </Picker>
+            <View style={{ marginBottom: 16 }}>
+              <ThemedPersonSelect
+                people={people}
+                value={personId}
+                onChange={setPersonId}
+                label="Person"
+              />
             </View>
           )}
 
