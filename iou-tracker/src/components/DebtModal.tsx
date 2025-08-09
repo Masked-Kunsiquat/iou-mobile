@@ -4,6 +4,7 @@ import { View, ScrollView } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useLedgerStore } from '../store/ledgerStore';
 import { DebtType } from '../models/types';
+import { useThemeColors } from '../theme/ThemeProvider';
 
 interface DebtModalProps {
   visible: boolean;
@@ -19,6 +20,7 @@ interface DebtModalProps {
 
 export default function DebtModal({ visible, onDismiss, onSave, defaultType }: DebtModalProps) {
   const { people } = useLedgerStore();
+  const colors = useThemeColors();
   const [type, setType] = useState<DebtType>(defaultType || 'IOU');
   const [personId, setPersonId] = useState('');
   const [description, setDescription] = useState('');
@@ -65,14 +67,11 @@ export default function DebtModal({ visible, onDismiss, onSave, defaultType }: D
   };
 
   const formatAmount = (text: string) => {
-    // Remove non-numeric characters except decimal point
     const cleaned = text.replace(/[^0-9.]/g, '');
-    // Ensure only one decimal point
     const parts = cleaned.split('.');
     if (parts.length > 2) {
       return parts[0] + '.' + parts.slice(1).join('');
     }
-    // Limit to 2 decimal places
     if (parts[1] && parts[1].length > 2) {
       return parts[0] + '.' + parts[1].substring(0, 2);
     }
@@ -82,47 +81,53 @@ export default function DebtModal({ visible, onDismiss, onSave, defaultType }: D
   return (
     <Portal>
       <Modal visible={visible} onDismiss={handleCancel} contentContainerStyle={{
-        backgroundColor: 'white',
+        backgroundColor: colors.surface,
         padding: 20,
         margin: 20,
         borderRadius: 8,
         maxHeight: '80%',
       }}>
         <ScrollView>
-          <Text variant="headlineSmall" style={{ marginBottom: 16 }}>
+          <Text variant="headlineSmall" style={{ marginBottom: 16, color: colors.textPrimary }}>
             Add New {type}
           </Text>
 
-          <Text variant="titleMedium" style={{ marginBottom: 8 }}>Type</Text>
+          <Text variant="titleMedium" style={{ marginBottom: 8, color: colors.textPrimary }}>Type</Text>
           <RadioButton.Group onValueChange={value => setType(value as DebtType)} value={type}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
               <RadioButton value="IOU" />
-              <Text onPress={() => setType('IOU')}>IOU - I owe them money</Text>
+              <Text onPress={() => setType('IOU')} style={{ color: colors.textPrimary }}>
+                IOU - I owe them money
+              </Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
               <RadioButton value="UOM" />
-              <Text onPress={() => setType('UOM')}>UOM - They owe me money</Text>
+              <Text onPress={() => setType('UOM')} style={{ color: colors.textPrimary }}>
+                UOM - They owe me money
+              </Text>
             </View>
           </RadioButton.Group>
 
-          <Text variant="titleMedium" style={{ marginBottom: 8 }}>Person</Text>
+          <Text variant="titleMedium" style={{ marginBottom: 8, color: colors.textPrimary }}>Person</Text>
           <View style={{ 
             borderWidth: 1, 
-            borderColor: '#ccc', 
+            borderColor: colors.outline, 
             borderRadius: 4, 
             marginBottom: 16,
-            backgroundColor: '#f5f5f5'
+            backgroundColor: colors.surfaceVariant
           }}>
             <Picker
               selectedValue={personId}
               onValueChange={setPersonId}
-              style={{ height: 50 }}
+              style={{ height: 50, color: colors.textPrimary }}
+              dropdownIconColor={colors.textPrimary}
             >
               {people.map(person => (
                 <Picker.Item 
                   key={person.id} 
                   label={person.name} 
-                  value={person.id} 
+                  value={person.id}
+                  color={colors.textPrimary}
                 />
               ))}
             </Picker>
@@ -148,7 +153,7 @@ export default function DebtModal({ visible, onDismiss, onSave, defaultType }: D
             placeholder="What is this for?"
           />
 
-          {error ? <Text style={{ color: 'red', marginBottom: 12 }}>{error}</Text> : null}
+          {error ? <Text style={{ color: colors.error, marginBottom: 12 }}>{error}</Text> : null}
 
           <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
             <Button mode="outlined" onPress={handleCancel}>Cancel</Button>

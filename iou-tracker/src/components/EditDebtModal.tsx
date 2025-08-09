@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Portal, TextInput, Button, Text } from 'react-native-paper';
 import { View, ScrollView } from 'react-native';
 import { Debt } from '../models/types';
+import { useThemeColors } from '../theme/ThemeProvider';
 
 interface EditDebtModalProps {
   visible: boolean;
@@ -15,6 +16,7 @@ interface EditDebtModalProps {
 }
 
 export default function EditDebtModal({ visible, onDismiss, onSave, debt }: EditDebtModalProps) {
+  const colors = useThemeColors();
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -72,14 +74,14 @@ export default function EditDebtModal({ visible, onDismiss, onSave, debt }: Edit
   return (
     <Portal>
       <Modal visible={visible} onDismiss={handleCancel} contentContainerStyle={{
-        backgroundColor: 'white',
+        backgroundColor: colors.surface,
         padding: 20,
         margin: 20,
         borderRadius: 8,
         maxHeight: '80%',
       }}>
         <ScrollView>
-          <Text variant="headlineSmall" style={{ marginBottom: 16 }}>
+          <Text variant="headlineSmall" style={{ marginBottom: 16, color: colors.textPrimary }}>
             Edit {debt.type}
           </Text>
 
@@ -111,7 +113,7 @@ export default function EditDebtModal({ visible, onDismiss, onSave, debt }: Edit
             style={{ marginBottom: 12 }}
           />
 
-          {error ? <Text style={{ color: 'red', marginBottom: 12 }}>{error}</Text> : null}
+          {error ? <Text style={{ color: colors.error, marginBottom: 12 }}>{error}</Text> : null}
 
           <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
             <Button mode="outlined" onPress={handleCancel}>Cancel</Button>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, TouchableOpacity } from 'react-native';
 import { Card, Text, IconButton, Divider } from 'react-native-paper';
 import { Debt } from '../models/types';
+import { useThemeColors } from '../theme/ThemeProvider';
 
 interface ExpandablePersonCardProps {
   personName: string;
@@ -20,9 +21,10 @@ export default function ExpandablePersonCard({
   onAddDebt,
   onDebtPress
 }: ExpandablePersonCardProps) {
+  const colors = useThemeColors();
   const [expanded, setExpanded] = useState(false);
   
-  const totalColor = type === 'IOU' ? '#d32f2f' : '#2e7d32';
+  const totalColor = type === 'IOU' ? colors.iouColor : colors.uomColor;
   const hasDebts = debts.length > 0;
 
   const formatDate = (isoString: string) => {
@@ -30,9 +32,9 @@ export default function ExpandablePersonCard({
   };
 
   const getStatusColor = (debt: Debt & { balance: string }) => {
-    if (debt.status === 'settled') return '#4caf50';
-    if (parseFloat(debt.balance) <= 0.01) return '#ff9800';
-    return '#666';
+    if (debt.status === 'settled') return colors.settledColor;
+    if (parseFloat(debt.balance) <= 0.01) return colors.paidColor;
+    return colors.textSecondary;
   };
 
   const getStatusText = (debt: Debt & { balance: string }) => {
@@ -42,7 +44,7 @@ export default function ExpandablePersonCard({
   };
 
   return (
-    <Card style={{ marginBottom: 12 }}>
+    <Card style={{ marginBottom: 12, backgroundColor: colors.surface }}>
       <Card.Content>
         <View style={{ 
           flexDirection: 'row',
@@ -50,14 +52,14 @@ export default function ExpandablePersonCard({
           alignItems: 'center'
         }}>
           <View style={{ flex: 1 }}>
-            <Text variant="titleLarge" style={{ marginBottom: 4 }}>
+            <Text variant="titleLarge" style={{ marginBottom: 4, color: colors.textPrimary }}>
               {personName}
             </Text>
             <Text variant="titleMedium" style={{ color: totalColor }}>
               Total: ${total}
             </Text>
             {hasDebts && (
-              <Text variant="bodySmall" style={{ color: '#666', marginTop: 2 }}>
+              <Text variant="bodySmall" style={{ color: colors.textSecondary, marginTop: 2 }}>
                 {debts.length} transaction{debts.length !== 1 ? 's' : ''}
               </Text>
             )}
@@ -98,15 +100,15 @@ export default function ExpandablePersonCard({
                   alignItems: 'flex-start'
                 }}>
                   <View style={{ flex: 1, marginRight: 8 }}>
-                    <Text variant="titleSmall" style={{ marginBottom: 2 }}>
+                    <Text variant="titleSmall" style={{ marginBottom: 2, color: colors.textPrimary }}>
                       ${debt.amountOriginal}
                       {debt.description && (
-                        <Text style={{ fontWeight: 'normal', color: '#666' }}>
+                        <Text style={{ fontWeight: 'normal', color: colors.textSecondary }}>
                           {' '}- {debt.description}
                         </Text>
                       )}
                     </Text>
-                    <Text variant="bodySmall" style={{ color: '#888' }}>
+                    <Text variant="bodySmall" style={{ color: colors.textSecondary }}>
                       {formatDate(debt.createdAt)}
                     </Text>
                     <Text 
@@ -139,7 +141,7 @@ export default function ExpandablePersonCard({
         {!hasDebts && (
           <Text style={{ 
             textAlign: 'center', 
-            color: '#999', 
+            color: colors.textDisabled, 
             fontStyle: 'italic',
             marginTop: 8 
           }}>

@@ -1,4 +1,5 @@
 import { registerRootComponent } from 'expo';
+import { Appearance, useColorScheme } from 'react-native';
 
 import App from './App';
 

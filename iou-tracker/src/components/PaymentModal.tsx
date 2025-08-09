@@ -3,6 +3,7 @@ import { Modal, Portal, TextInput, Button, Text, HelperText, Chip } from 'react-
 import { View, ScrollView } from 'react-native';
 import { Debt } from '../models/types';
 import { getDebtBalance } from '../db/repo';
+import { useThemeColors } from '../theme/ThemeProvider';
 
 interface PaymentModalProps {
   visible: boolean;
@@ -17,6 +18,8 @@ interface PaymentModalProps {
 }
 
 export default function PaymentModal({ visible, onDismiss, onSave, debt }: PaymentModalProps) {
+  const colors = useThemeColors();
+
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState('');
   const [note, setNote] = useState('');
@@ -106,34 +109,50 @@ export default function PaymentModal({ visible, onDismiss, onSave, debt }: Payme
 
   if (!debt) return null;
 
-  const remainingAfterPayment = amount && !isNaN(parseFloat(amount)) 
-    ? Math.max(0, parseFloat(balance) - parseFloat(amount)).toFixed(2)
-    : balance;
+  const remainingAfterPayment =
+    amount && !isNaN(parseFloat(amount))
+      ? Math.max(0, parseFloat(balance) - parseFloat(amount)).toFixed(2)
+      : balance;
+
+  const isSettledAfter = parseFloat(remainingAfterPayment) <= 0.01;
 
   return (
     <Portal>
-      <Modal visible={visible} onDismiss={handleCancel} contentContainerStyle={{
-        backgroundColor: 'white',
-        padding: 20,
-        margin: 20,
-        borderRadius: 8,
-        maxHeight: '80%',
-      }}>
+      <Modal
+        visible={visible}
+        onDismiss={handleCancel}
+        contentContainerStyle={{
+          backgroundColor: colors.surface,
+          padding: 20,
+          margin: 20,
+          borderRadius: 8,
+          maxHeight: '80%',
+        }}
+      >
         <ScrollView>
-          <Text variant="headlineSmall" style={{ marginBottom: 16 }}>
+          <Text variant="headlineSmall" style={{ marginBottom: 16, color: colors.textPrimary }}>
             Add Payment
           </Text>
 
-          <View style={{ 
-            backgroundColor: '#f5f5f5', 
-            padding: 12, 
-            borderRadius: 8,
-            marginBottom: 16 
-          }}>
-            <Text variant="bodySmall" style={{ color: '#666' }}>
+          <View
+            style={{
+              backgroundColor: colors.surfaceVariant,
+              padding: 12,
+              borderRadius: 8,
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: colors.outline,
+            }}
+          >
+            <Text variant="bodySmall" style={{ color: colors.textSecondary }}>
               Current Balance
             </Text>
-            <Text variant="titleLarge" style={{ color: debt.type === 'IOU' ? '#d32f2f' : '#2e7d32' }}>
+            <Text
+              variant="titleLarge"
+              style={{
+                color: debt.type === 'IOU' ? colors.iouColor : colors.uomColor,
+              }}
+            >
               ${balance}
             </Text>
           </View>
@@ -146,55 +165,50 @@ export default function PaymentModal({ visible, onDismiss, onSave, debt }: Payme
             style={{ marginBottom: 8 }}
             left={<TextInput.Affix text="$" />}
             error={!!error && error.includes('amount')}
+            mode="outlined"
+            outlineColor={colors.outline}
+            activeOutlineColor={colors.primary}
+            placeholderTextColor={colors.textSecondary}
           />
 
           {/* Quick amount buttons */}
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-            <Chip 
-              mode="outlined" 
-              onPress={() => handleQuickAmount(0.25)}
-              compact
-            >
+            <Chip mode="outlined" onPress={() => handleQuickAmount(0.25)} compact>
               25%
             </Chip>
-            <Chip 
-              mode="outlined" 
-              onPress={() => handleQuickAmount(0.5)}
-              compact
-            >
+            <Chip mode="outlined" onPress={() => handleQuickAmount(0.5)} compact>
               50%
             </Chip>
-            <Chip 
-              mode="outlined" 
-              onPress={() => handleQuickAmount(0.75)}
-              compact
-            >
+            <Chip mode="outlined" onPress={() => handleQuickAmount(0.75)} compact>
               75%
             </Chip>
-            <Chip 
-              mode="outlined" 
-              onPress={() => setAmount(balance)}
-              compact
-            >
+            <Chip mode="outlined" onPress={() => setAmount(balance)} compact>
               Full
             </Chip>
           </View>
 
           {amount && !isNaN(parseFloat(amount)) && parseFloat(amount) > 0 && (
-            <View style={{ 
-              backgroundColor: parseFloat(remainingAfterPayment) <= 0.01 ? '#e8f5e9' : '#fff3e0', 
-              padding: 12, 
-              borderRadius: 8,
-              marginBottom: 16 
-            }}>
-              <Text variant="bodySmall" style={{ color: '#666' }}>
+            <View
+              style={{
+                backgroundColor: colors.surfaceVariant,
+                padding: 12,
+                borderRadius: 8,
+                marginBottom: 16,
+                borderWidth: 1,
+                borderColor: isSettledAfter ? colors.settledColor : colors.paidColor,
+              }}
+            >
+              <Text variant="bodySmall" style={{ color: colors.textSecondary }}>
                 Remaining After Payment
               </Text>
-              <Text variant="titleMedium" style={{ 
-                color: parseFloat(remainingAfterPayment) <= 0.01 ? '#2e7d32' : '#f57c00' 
-              }}>
+              <Text
+                variant="titleMedium"
+                style={{
+                  color: isSettledAfter ? colors.settledColor : colors.paidColor,
+                }}
+              >
                 ${remainingAfterPayment}
-                {parseFloat(remainingAfterPayment) <= 0.01 && ' (Will be marked as settled)'}
+                {isSettledAfter && ' (Will be marked as settled)'}
               </Text>
             </View>
           )}
@@ -206,6 +220,10 @@ export default function PaymentModal({ visible, onDismiss, onSave, debt }: Payme
             placeholder="YYYY-MM-DD"
             style={{ marginBottom: 12 }}
             error={!!error && error.includes('date')}
+            mode="outlined"
+            outlineColor={colors.outline}
+            activeOutlineColor={colors.primary}
+            placeholderTextColor={colors.textSecondary}
           />
 
           <TextInput
@@ -216,6 +234,10 @@ export default function PaymentModal({ visible, onDismiss, onSave, debt }: Payme
             numberOfLines={2}
             style={{ marginBottom: 12 }}
             placeholder="e.g., Venmo, cash, check #1234"
+            mode="outlined"
+            outlineColor={colors.outline}
+            activeOutlineColor={colors.primary}
+            placeholderTextColor={colors.textSecondary}
           />
 
           {error ? (
@@ -225,8 +247,12 @@ export default function PaymentModal({ visible, onDismiss, onSave, debt }: Payme
           ) : null}
 
           <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
-            <Button mode="outlined" onPress={handleCancel}>Cancel</Button>
-            <Button mode="contained" onPress={handleSave}>Save Payment</Button>
+            <Button mode="outlined" onPress={handleCancel}>
+              Cancel
+            </Button>
+            <Button mode="contained" onPress={handleSave}>
+              Save Payment
+            </Button>
           </View>
         </ScrollView>
       </Modal>

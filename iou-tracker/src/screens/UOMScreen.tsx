@@ -1,13 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, Alert } from 'react-native';
-import { Card, Text, Provider as PaperProvider, Appbar } from 'react-native-paper';
+import { Card, Text, Appbar } from 'react-native-paper';
 import { useLedgerStore } from '../store/ledgerStore';
-import { getDebtsByPersonAndType, getDebtWithBalance, updateDebt, deleteDebt, markDebtSettled, addPayment } from '../db/repo';
+import {
+  getDebtsByPersonAndType,
+  getDebtWithBalance,
+  updateDebt,
+  deleteDebt,
+  markDebtSettled,
+  addPayment,
+} from '../db/repo';
 import ExpandablePersonCard from '../components/ExpandablePersonCard';
 import DebtDetailModal from '../components/DebtDetailModal';
 import EditDebtModal from '../components/EditDebtModal';
 import PaymentModal from '../components/PaymentModal';
 import { Debt } from '../models/types';
+import { useThemeColors } from '../theme/ThemeProvider';
 
 interface UOMScreenProps {
   onBack?: () => void;
@@ -16,10 +24,11 @@ interface UOMScreenProps {
 
 export default function UOMScreen({ onBack, onAddUOMForPerson }: UOMScreenProps) {
   const { dashboard, people, refresh } = useLedgerStore();
-  const [peopleWithDebts, setPeopleWithDebts] = useState<Array<{
-    person: any;
-    debts: (Debt & { balance: string })[];
-  }>>([]);
+  const colors = useThemeColors();
+
+  const [peopleWithDebts, setPeopleWithDebts] = useState<
+    Array<{ person: any; debts: (Debt & { balance: string })[] }>
+  >([]);
   const [loading, setLoading] = useState(true);
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
@@ -30,8 +39,7 @@ export default function UOMScreen({ onBack, onAddUOMForPerson }: UOMScreenProps)
 
   const loadUOMData = async () => {
     try {
-      const peopleWithUOMs = people.filter(p => parseFloat(p.uomTotal) > 0);
-      
+      const peopleWithUOMs = people.filter((p) => parseFloat(p.uomTotal) > 0);
       const peopleData = await Promise.all(
         peopleWithUOMs.map(async (person) => {
           const debts = await getDebtsByPersonAndType(person.id, 'UOM');
@@ -41,13 +49,9 @@ export default function UOMScreen({ onBack, onAddUOMForPerson }: UOMScreenProps)
               return debtWithBalance!;
             })
           );
-          return {
-            person,
-            debts: debtsWithBalance
-          };
+          return { person, debts: debtsWithBalance };
         })
       );
-      
       setPeopleWithDebts(peopleData);
     } catch (error) {
       console.error('Failed to load UOM data:', error);
@@ -56,14 +60,12 @@ export default function UOMScreen({ onBack, onAddUOMForPerson }: UOMScreenProps)
     }
   };
 
-  useEffect(() => { 
-    refresh().then(() => loadUOMData()); 
+  useEffect(() => {
+    refresh().then(() => loadUOMData());
   }, []);
 
   useEffect(() => {
-    if (people.length > 0) {
-      loadUOMData();
-    }
+    if (people.length > 0) loadUOMData();
   }, [people]);
 
   const handleDebtPress = (debt: Debt) => {
@@ -76,11 +78,10 @@ export default function UOMScreen({ onBack, onAddUOMForPerson }: UOMScreenProps)
     setEditModalVisible(true);
   };
 
-  const handleSaveEdit = async (debtId: string, updates: {
-    description: string;
-    amountOriginal: string;
-    dueAt?: string | null;
-  }) => {
+  const handleSaveEdit = async (
+    debtId: string,
+    updates: { description: string; amountOriginal: string; dueAt?: string | null }
+  ) => {
     try {
       await updateDebt(debtId, updates);
       await refresh();
@@ -117,9 +118,7 @@ export default function UOMScreen({ onBack, onAddUOMForPerson }: UOMScreenProps)
   };
 
   const handleAddPayment = (debtId: string) => {
-    const debt = peopleWithDebts
-      .flatMap(({ debts }) => debts)
-      .find(d => d.id === debtId);
+    const debt = peopleWithDebts.flatMap(({ debts }) => debts).find((d) => d.id === debtId);
     if (debt) {
       setPaymentDebt(debt);
       setPaymentModalVisible(true);
@@ -137,8 +136,6 @@ export default function UOMScreen({ onBack, onAddUOMForPerson }: UOMScreenProps)
       await addPayment(payment);
       await refresh();
       await loadUOMData();
-      
-      // Reopen detail modal to show updated payment history
       const updatedDebt = await getDebtWithBalance(payment.debtId);
       if (updatedDebt) {
         setSelectedDebt(updatedDebt);
@@ -152,29 +149,32 @@ export default function UOMScreen({ onBack, onAddUOMForPerson }: UOMScreenProps)
 
   if (loading) {
     return (
-      <PaperProvider>
+      <>
         <Appbar.Header>
           <Appbar.BackAction onPress={onBack} />
           <Appbar.Content title="Owed to Me (UOMs)" />
         </Appbar.Header>
-        <ScrollView contentContainerStyle={{ padding: 16 }}>
-          <Text>Loading...</Text>
+        <ScrollView contentContainerStyle={{ padding: 16 }} style={{ backgroundColor: colors.background }}>
+          <Text style={{ color: colors.textSecondary }}>Loading...</Text>
         </ScrollView>
-      </PaperProvider>
+      </>
     );
   }
 
   return (
-    <PaperProvider>
+    <>
       <Appbar.Header>
         <Appbar.BackAction onPress={onBack} />
         <Appbar.Content title="Owed to Me (UOMs)" />
       </Appbar.Header>
-      
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
-        <Card>
+
+      <ScrollView
+        contentContainerStyle={{ padding: 16, gap: 12 }}
+        style={{ backgroundColor: colors.background }}
+      >
+        <Card style={{ backgroundColor: colors.surface }}>
           <Card.Content>
-            <Text variant="headlineSmall" style={{ color: '#2e7d32', textAlign: 'center' }}>
+            <Text variant="headlineSmall" style={{ color: colors.uomColor, textAlign: 'center' }}>
               Total: ${dashboard?.totalUOM ?? '0.00'}
             </Text>
           </Card.Content>
@@ -193,16 +193,14 @@ export default function UOMScreen({ onBack, onAddUOMForPerson }: UOMScreenProps)
         ))}
 
         {peopleWithDebts.length === 0 && (
-          <Card>
-            <Card.Content style={{ 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              paddingVertical: 40
-            }}>
-              <Text variant="titleMedium" style={{ color: '#666', marginBottom: 8 }}>
+          <Card style={{ backgroundColor: colors.surface }}>
+            <Card.Content
+              style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 40 }}
+            >
+              <Text variant="titleMedium" style={{ color: colors.textSecondary, marginBottom: 8 }}>
                 No one owes you money right now
               </Text>
-              <Text variant="bodyMedium" style={{ color: '#999', textAlign: 'center' }}>
+              <Text variant="bodyMedium" style={{ color: colors.textDisabled, textAlign: 'center' }}>
                 When you lend money, it will appear here
               </Text>
             </Card.Content>
@@ -233,6 +231,6 @@ export default function UOMScreen({ onBack, onAddUOMForPerson }: UOMScreenProps)
         onSave={handleSavePayment}
         debt={paymentDebt}
       />
-    </PaperProvider>
+    </>
   );
 }

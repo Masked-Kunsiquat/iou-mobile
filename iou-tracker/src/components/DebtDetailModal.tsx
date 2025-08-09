@@ -3,6 +3,7 @@ import { Modal, Portal, Text, Card, Button, IconButton, Divider, Menu, Dialog } 
 import { View, ScrollView, Alert } from 'react-native';
 import { Debt, Payment } from '../models/types';
 import { getPaymentsByDebt, getDebtBalance, getPersonById } from '../db/repo';
+import { useThemeColors } from '../theme/ThemeProvider';
 
 interface DebtDetailModalProps {
   visible: boolean;
@@ -23,6 +24,7 @@ export default function DebtDetailModal({
   onAddPayment,
   onMarkSettled
 }: DebtDetailModalProps) {
+  const colors = useThemeColors();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [balance, setBalance] = useState('0.00');
   const [personName, setPersonName] = useState('');
@@ -83,7 +85,7 @@ export default function DebtDetailModal({
           visible={visible} 
           onDismiss={onDismiss} 
           contentContainerStyle={{
-            backgroundColor: 'white',
+            backgroundColor: colors.surface,
             margin: 20,
             borderRadius: 8,
             maxHeight: '80%',
@@ -98,7 +100,9 @@ export default function DebtDetailModal({
               padding: 20,
               paddingBottom: 0
             }}>
-              <Text variant="headlineSmall">Debt Details</Text>
+              <Text variant="headlineSmall" style={{ color: colors.textPrimary }}>
+                Debt Details
+              </Text>
               <Menu
                 visible={menuVisible}
                 onDismiss={() => setMenuVisible(false)}
@@ -144,7 +148,7 @@ export default function DebtDetailModal({
                     onPress={handleDelete} 
                     title="Delete" 
                     leadingIcon="delete"
-                    titleStyle={{ color: '#d32f2f' }}
+                    titleStyle={{ color: colors.error }}
                   />
                 )}
               </Menu>
@@ -154,14 +158,14 @@ export default function DebtDetailModal({
               {/* Type Badge */}
               <View style={{ 
                 alignSelf: 'flex-start',
-                backgroundColor: debt.type === 'IOU' ? '#ffebee' : '#e8f5e9',
+                backgroundColor: debt.type === 'IOU' ? colors.iouContainer : colors.uomContainer,
                 paddingHorizontal: 12,
                 paddingVertical: 4,
                 borderRadius: 16,
                 marginBottom: 16
               }}>
                 <Text style={{ 
-                  color: debt.type === 'IOU' ? '#d32f2f' : '#2e7d32',
+                  color: debt.type === 'IOU' ? colors.iouColor : colors.uomColor,
                   fontWeight: '500'
                 }}>
                   {debt.type === 'IOU' ? 'I Owe Them' : 'They Owe Me'}
@@ -169,35 +173,41 @@ export default function DebtDetailModal({
               </View>
 
               {/* Main Info */}
-              <Text variant="titleMedium" style={{ marginBottom: 4 }}>
+              <Text variant="titleMedium" style={{ marginBottom: 4, color: colors.textPrimary }}>
                 {personName}
               </Text>
-              <Text variant="headlineMedium" style={{ marginBottom: 16 }}>
+              <Text variant="headlineMedium" style={{ marginBottom: 16, color: colors.textPrimary }}>
                 ${debt.amountOriginal}
               </Text>
 
               {debt.description && (
                 <View style={{ marginBottom: 16 }}>
-                  <Text variant="bodySmall" style={{ color: '#666', marginBottom: 2 }}>
+                  <Text variant="bodySmall" style={{ color: colors.textSecondary, marginBottom: 2 }}>
                     Description
                   </Text>
-                  <Text variant="bodyLarge">{debt.description}</Text>
+                  <Text variant="bodyLarge" style={{ color: colors.textPrimary }}>
+                    {debt.description}
+                  </Text>
                 </View>
               )}
 
               <View style={{ flexDirection: 'row', gap: 24, marginBottom: 16 }}>
                 <View>
-                  <Text variant="bodySmall" style={{ color: '#666', marginBottom: 2 }}>
+                  <Text variant="bodySmall" style={{ color: colors.textSecondary, marginBottom: 2 }}>
                     Created
                   </Text>
-                  <Text variant="bodyMedium">{formatDate(debt.createdAt)}</Text>
+                  <Text variant="bodyMedium" style={{ color: colors.textPrimary }}>
+                    {formatDate(debt.createdAt)}
+                  </Text>
                 </View>
                 {debt.dueAt && (
                   <View>
-                    <Text variant="bodySmall" style={{ color: '#666', marginBottom: 2 }}>
+                    <Text variant="bodySmall" style={{ color: colors.textSecondary, marginBottom: 2 }}>
                       Due
                     </Text>
-                    <Text variant="bodyMedium">{formatDate(debt.dueAt)}</Text>
+                    <Text variant="bodyMedium" style={{ color: colors.textPrimary }}>
+                      {formatDate(debt.dueAt)}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -206,24 +216,24 @@ export default function DebtDetailModal({
 
               {/* Balance Info */}
               <View style={{ 
-                backgroundColor: isSettled ? '#e8f5e9' : isPaid ? '#fff3e0' : '#f5f5f5',
+                backgroundColor: isSettled ? colors.uomContainer : isPaid ? colors.surfaceVariant : colors.surfaceVariant,
                 padding: 16,
                 borderRadius: 8,
                 marginBottom: 16
               }}>
-                <Text variant="titleMedium" style={{ marginBottom: 4 }}>
+                <Text variant="titleMedium" style={{ marginBottom: 4, color: colors.textPrimary }}>
                   {isSettled ? 'Status' : 'Balance'}
                 </Text>
                 <Text 
                   variant="headlineSmall" 
                   style={{ 
-                    color: isSettled ? '#2e7d32' : isPaid ? '#f57c00' : '#333'
+                    color: isSettled ? colors.settledColor : isPaid ? colors.paidColor : colors.textPrimary
                   }}
                 >
                   {isSettled ? 'Settled' : isPaid ? 'Fully Paid' : `$${balance}`}
                 </Text>
                 {!isSettled && payments.length > 0 && (
-                  <Text variant="bodySmall" style={{ color: '#666', marginTop: 4 }}>
+                  <Text variant="bodySmall" style={{ color: colors.textSecondary, marginTop: 4 }}>
                     {payments.length} payment{payments.length !== 1 ? 's' : ''} made
                   </Text>
                 )}
@@ -232,10 +242,10 @@ export default function DebtDetailModal({
               {/* Payments Section */}
               {payments.length > 0 && (
                 <>
-                  <Text variant="titleMedium" style={{ marginBottom: 12 }}>
+                  <Text variant="titleMedium" style={{ marginBottom: 12, color: colors.textPrimary }}>
                     Payment History
                   </Text>
-                  <Card style={{ marginBottom: 16 }}>
+                  <Card style={{ marginBottom: 16, backgroundColor: colors.surface }}>
                     <Card.Content>
                       {payments.map((payment, index) => (
                         <View key={payment.id}>
@@ -245,13 +255,15 @@ export default function DebtDetailModal({
                               justifyContent: 'space-between',
                               marginBottom: 4
                             }}>
-                              <Text variant="titleSmall">${payment.amount}</Text>
-                              <Text variant="bodySmall" style={{ color: '#666' }}>
+                              <Text variant="titleSmall" style={{ color: colors.textPrimary }}>
+                                ${payment.amount}
+                              </Text>
+                              <Text variant="bodySmall" style={{ color: colors.textSecondary }}>
                                 {formatDate(payment.date)}
                               </Text>
                             </View>
                             {payment.note && (
-                              <Text variant="bodySmall" style={{ color: '#888' }}>
+                              <Text variant="bodySmall" style={{ color: colors.textSecondary }}>
                                 {payment.note}
                               </Text>
                             )}
@@ -289,11 +301,13 @@ export default function DebtDetailModal({
         <Dialog visible={deleteDialogVisible} onDismiss={() => setDeleteDialogVisible(false)}>
           <Dialog.Title>Delete Debt?</Dialog.Title>
           <Dialog.Content>
-            <Text>Are you sure you want to delete this debt? This will also delete all associated payments. This action cannot be undone.</Text>
+            <Text style={{ color: colors.textPrimary }}>
+              Are you sure you want to delete this debt? This will also delete all associated payments. This action cannot be undone.
+            </Text>
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setDeleteDialogVisible(false)}>Cancel</Button>
-            <Button onPress={confirmDelete} textColor="#d32f2f">Delete</Button>
+            <Button onPress={confirmDelete} textColor={colors.error}>Delete</Button>
           </Dialog.Actions>
         </Dialog>
       </Portal>
