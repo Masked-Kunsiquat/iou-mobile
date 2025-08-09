@@ -15,6 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
+        "NSFaceIDUsageDescription": "Authenicate to secure your data.",
         "NSContactsUsageDescription": "This app needs access to contacts to help you quickly add people you owe money to or who owe you money."
       }
     },

@@ -20,12 +20,14 @@ interface DashboardProps {
   onNavigateToIOUs?: () => void;
   onNavigateToUOMs?: () => void;
   onNavigateToContacts?: () => void;
+  onNavigateToSettings?: () => void; // NEW
 }
 
 export default function Dashboard({
   onNavigateToIOUs,
   onNavigateToUOMs,
   onNavigateToContacts,
+  onNavigateToSettings, // NEW
 }: DashboardProps) {
   const { dashboard, refresh } = useLedgerStore();
   const colors = useThemeColors();
@@ -78,8 +80,8 @@ export default function Dashboard({
   return (
     <ScrollView
       contentContainerStyle={{
-        paddingTop: insets.top + 8,           // safe area + breathing room
-        paddingBottom: 16 + insets.bottom,    // keep content/FAB off bottom edges
+        paddingTop: insets.top + 8,
+        paddingBottom: 16 + insets.bottom,
         paddingHorizontal: 16,
         gap: 12,
       }}
@@ -89,7 +91,7 @@ export default function Dashboard({
       <Card style={{ backgroundColor: colors.surface }}>
         <Card.Content style={{ paddingVertical: 0 }}>
           {/* IOU row */}
-          <TouchableRipple onPress={onNavigateToIOUs}>
+          <TouchableRipple onPress={onNavigateToIOUs} accessibilityLabel="Go to IOU list">
             <View
               style={{
                 paddingVertical: 16,
@@ -129,7 +131,7 @@ export default function Dashboard({
           <Divider />
 
           {/* UOM row */}
-          <TouchableRipple onPress={onNavigateToUOMs}>
+          <TouchableRipple onPress={onNavigateToUOMs} accessibilityLabel="Go to UOM list">
             <View
               style={{
                 paddingVertical: 16,
@@ -151,13 +153,13 @@ export default function Dashboard({
 
       {/* Stacked totals bar (no external chart deps) */}
       <ChartCard
-        title=''
+        title=""
         totalIOU={dashboard?.totalIOU ?? '0.00'}
         totalUOM={dashboard?.totalUOM ?? '0.00'}
       />
 
       {/* Contacts Navigation */}
-      <TouchableRipple onPress={onNavigateToContacts} borderless={false}>
+      <TouchableRipple onPress={onNavigateToContacts} borderless={false} accessibilityLabel="Manage Contacts">
         <Card style={{ backgroundColor: colors.surface }}>
           <Card.Content
             style={{
@@ -169,6 +171,24 @@ export default function Dashboard({
           >
             <Text variant="titleMedium" style={{ color: colors.textPrimary }}>
               Manage Contacts
+            </Text>
+          </Card.Content>
+        </Card>
+      </TouchableRipple>
+
+      {/* Settings Navigation (NEW) */}
+      <TouchableRipple onPress={onNavigateToSettings} borderless={false} accessibilityLabel="Open Settings">
+        <Card style={{ backgroundColor: colors.surface }}>
+          <Card.Content
+            style={{
+              height: 60,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text variant="titleMedium" style={{ color: colors.textPrimary }}>
+              Settings
             </Text>
           </Card.Content>
         </Card>
