@@ -1,16 +1,75 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView } from 'react-native';
 import { Card, Text, Provider as PaperProvider, Appbar } from 'react-native-paper';
 import { useLedgerStore } from '../store/ledgerStore';
+import { getDebtsByPersonAndType, getDebtWithBalance } from '../db/repo';
+import ExpandablePersonCard from '../components/ExpandablePersonCard';
+import { Debt } from '../models/types';
 
 interface UOMScreenProps {
   onBack?: () => void;
+  onAddUOMForPerson?: (personId: string) => void;
 }
 
-export default function UOMScreen({ onBack }: UOMScreenProps) {
+export default function UOMScreen({ onBack, onAddUOMForPerson }: UOMScreenProps) {
   const { dashboard, people, refresh } = useLedgerStore();
+  const [peopleWithDebts, setPeopleWithDebts] = useState<Array<{
+    person: any;
+    debts: (Debt & { balance: string })[];
+  }>>([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => { refresh(); }, []);
+  const loadUOMData = async () => {
+    try {
+      const peopleWithUOMs = people.filter(p => parseFloat(p.uomTotal) > 0);
+      
+      const peopleData = await Promise.all(
+        peopleWithUOMs.map(async (person) => {
+          const debts = await getDebtsByPersonAndType(person.id, 'UOM');
+          const debtsWithBalance = await Promise.all(
+            debts.map(async (debt) => {
+              const debtWithBalance = await getDebtWithBalance(debt.id);
+              return debtWithBalance!;
+            })
+          );
+          return {
+            person,
+            debts: debtsWithBalance
+          };
+        })
+      );
+      
+      setPeopleWithDebts(peopleData);
+    } catch (error) {
+      console.error('Failed to load UOM data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { 
+    refresh().then(() => loadUOMData()); 
+  }, []);
+
+  useEffect(() => {
+    if (people.length > 0) {
+      loadUOMData();
+    }
+  }, [people]);
+
+  if (loading) {
+    return (
+      <PaperProvider>
+        <Appbar.Header>
+          <Appbar.BackAction onPress={onBack} />
+          <Appbar.Content title="Owed to Me (UOMs)" />
+        </Appbar.Header>
+        <ScrollView contentContainerStyle={{ padding: 16 }}>
+          <Text>Loading...</Text>
+        </ScrollView>
+      </PaperProvider>
+    );
+  }
 
   return (
     <PaperProvider>
@@ -28,37 +87,33 @@ export default function UOMScreen({ onBack }: UOMScreenProps) {
           </Card.Content>
         </Card>
 
-        <Card>
-          <Card.Title title="People Who Owe Me Money" />
-          <Card.Content style={{ gap: 8 }}>
-            {people
-              .filter(p => parseFloat(p.uomTotal) > 0)
-              .map(p => (
-                <View 
-                  key={p.id} 
-                  style={{ 
-                    paddingVertical: 12, 
-                    borderBottomWidth: 1, 
-                    borderColor: '#eee',
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}
-                >
-                  <Text variant="titleMedium">{p.name}</Text>
-                  <Text variant="titleMedium" style={{ color: '#2e7d32' }}>
-                    ${p.uomTotal}
-                  </Text>
-                </View>
-              ))
-            }
-            {people.filter(p => parseFloat(p.uomTotal) > 0).length === 0 && (
-              <Text style={{ textAlign: 'center', color: '#666', padding: 20 }}>
-                No one owes you money right now.
+        {peopleWithDebts.map(({ person, debts }) => (
+          <ExpandablePersonCard
+            key={person.id}
+            personName={person.name}
+            total={person.uomTotal}
+            debts={debts}
+            type="UOM"
+            onAddDebt={() => onAddUOMForPerson?.(person.id)}
+          />
+        ))}
+
+        {peopleWithDebts.length === 0 && (
+          <Card>
+            <Card.Content style={{ 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              paddingVertical: 40
+            }}>
+              <Text variant="titleMedium" style={{ color: '#666', marginBottom: 8 }}>
+                No one owes you money right now
               </Text>
-            )}
-          </Card.Content>
-        </Card>
+              <Text variant="bodyMedium" style={{ color: '#999', textAlign: 'center' }}>
+                When you lend money, it will appear here
+              </Text>
+            </Card.Content>
+          </Card>
+        )}
       </ScrollView>
     </PaperProvider>
   );

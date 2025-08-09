@@ -13,6 +13,33 @@ export async function upsertPerson(p: Omit<Person,'id'> & Partial<Pick<Person,'i
   return id;
 }
 
+export async function getDebtsByPersonAndType(personId: string, type: 'IOU' | 'UOM') {
+  const db = await openDB();
+  return await db.getAllAsync<Debt>(`
+    SELECT * FROM debts 
+    WHERE personId = ? AND type = ? 
+    ORDER BY createdAt DESC
+  `, [personId, type]);
+}
+
+export async function getPaymentsByDebt(debtId: string) {
+  const db = await openDB();
+  return await db.getAllAsync<Payment>(`
+    SELECT * FROM payments 
+    WHERE debtId = ? 
+    ORDER BY date DESC
+  `, [debtId]);
+}
+
+export async function getDebtWithBalance(debtId: string) {
+  const db = await openDB();
+  const debt = await db.getFirstAsync<Debt>('SELECT * FROM debts WHERE id=?', [debtId]);
+  if (!debt) return null;
+  
+  const balance = await getDebtBalance(debtId);
+  return { ...debt, balance };
+}
+
 export async function deletePerson(id: string) {
   const db = await openDB();
   // Check if person has any debts
