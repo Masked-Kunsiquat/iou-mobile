@@ -1,10 +1,11 @@
 // src/screens/SettingsScreen.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { Appbar, List, Switch, Text, RadioButton, Button, Divider } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../theme/ThemeProvider';
 import { useSecurityStore } from '../store/securityStore';
+import { authenticate } from '../security/biometrics';
 
 const OPTIONS = [
   { label: '1 minute', ms: 60_000 },
@@ -17,6 +18,29 @@ export default function SettingsScreen({ onBack }: { onBack?: () => void }) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const { biometricsEnabled, sessionMs, setEnabled, setSessionMs, clearSession } = useSecurityStore();
+  const [updating, setUpdating] = useState(false); // prevents concurrent prompts
+
+  const onToggleBiometrics = async (next: boolean) => {
+    if (updating) return;
+    setUpdating(true);
+    try {
+      if (next) {
+        // Prompt immediately; only enable on success
+        const res = await authenticate('Enable biometric unlock');
+        if (res.ok) {
+          setEnabled(true);
+          clearSession(); // why: force fresh auth window right after enabling
+        } else {
+          setEnabled(false); // keep disabled if unsupported/cancelled
+        }
+      } else {
+        setEnabled(false);
+        clearSession(); // why: lock immediately when turning off/on states change
+      }
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   return (
     <>
@@ -25,7 +49,10 @@ export default function SettingsScreen({ onBack }: { onBack?: () => void }) {
         <Appbar.Content title="Settings" />
       </Appbar.Header>
 
-      <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={{ padding: 16, paddingBottom: 16 + insets.bottom }}>
+      <ScrollView
+        style={{ backgroundColor: colors.background }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 16 + insets.bottom }}
+      >
         <List.Section>
           <List.Subheader>Security</List.Subheader>
 
@@ -34,15 +61,29 @@ export default function SettingsScreen({ onBack }: { onBack?: () => void }) {
               title="Require biometric unlock"
               description="Lock app on launch and when returning from background"
               right={() => (
-                <Switch value={biometricsEnabled} onValueChange={(v) => setEnabled(v)} />
+                <Switch
+                  accessibilityLabel="Toggle biometric unlock"
+                  value={biometricsEnabled}
+                  disabled={updating}
+                  onValueChange={onToggleBiometrics}
+                />
               )}
             />
             <Divider />
 
             <List.Item title="Grace period" description="Skip re-auth within this time window" />
             <RadioButton.Group onValueChange={(v) => setSessionMs(Number(v))} value={String(sessionMs)}>
-              {OPTIONS.map((opt, idx) => (
-                <View key={opt.ms} style={{ paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              {OPTIONS.map((opt) => (
+                <View
+                  key={opt.ms}
+                  style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
                   <Text style={{ color: colors.textPrimary }}>{opt.label}</Text>
                   <RadioButton value={String(opt.ms)} />
                 </View>
@@ -50,7 +91,7 @@ export default function SettingsScreen({ onBack }: { onBack?: () => void }) {
             </RadioButton.Group>
 
             <View style={{ padding: 16 }}>
-              <Button mode="outlined" onPress={() => clearSession()}>
+              <Button mode="outlined" onPress={() => clearSession()} disabled={updating}>
                 Lock now
               </Button>
             </View>
