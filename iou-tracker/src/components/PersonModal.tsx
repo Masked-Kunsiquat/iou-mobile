@@ -27,20 +27,28 @@ export default function PersonModal({ visible, onDismiss, onSave, editPerson }: 
     }
   }, [visible, editPerson]);
 
-  const handleSave = () => {
-    if (!name.trim()) {
-      setError('Name is required');
-      return;
-    }
-    setError('');
-    onSave({
+const handleSave = async () => {
+  if (!name.trim()) {
+    setError('Name is required');
+    return;
+  }
+  setError('');
+  try {
+    await onSave({
       id: editPerson?.id,
       name: name.trim(),
       contact: contact.trim() || undefined,
       notes: notes.trim() || undefined,
     });
-    onDismiss();
-  };
+    onDismiss(); // Only dismiss if save succeeded
+  } catch (err: any) {
+    console.error('Failed to save person:', err);
+    setError(
+      err?.message || 'Failed to save person. Please try again.'
+    );
+  }
+};
+
 
   const handleCancel = () => {
     setError('');
