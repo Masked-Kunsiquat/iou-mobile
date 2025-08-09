@@ -1,45 +1,67 @@
-import { v4 as uuid } from 'uuid';
+import * as Crypto from 'expo-crypto';
 import { openDB } from './db';
-import { add, sub, lte } from '../utils/money';
+import { add, sub, lte, toCentsStr, d } from '../utils/money';
 import { Debt, Payment, Person } from '../models/types';
 
-export async function upsertPerson(p: Omit<Person,'id'> & Partial<Pick<Person,'id'>>) {
+export async function upsertPerson(
+  p: Omit<Person, 'id'> & Partial<Pick<Person, 'id'>>
+) {
   const db = await openDB();
-  const id = p.id ?? uuid();
+  const id = p.id ?? Crypto.randomUUID();
   await db.runAsync(
-    'INSERT OR REPLACE INTO people(id,name,contact,notes) VALUES(?,?,?,?)',
+    `INSERT INTO people (id, name, contact, notes)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       name = excluded.name,
+       contact = excluded.contact,
+       notes = excluded.notes`,
     [id, p.name, p.contact ?? null, p.notes ?? null]
   );
   return id;
 }
 
+export async function getPersonById(id: string) {
+  const db = await openDB();
+  return await db.getFirstAsync<Person>('SELECT * FROM people WHERE id=?', [id]);
+}
+
 export async function listPeopleWithTotals() {
   const db = await openDB();
-  // totals per person
+  // Get people and their debt totals as strings to avoid float precision
   const rows = await db.getAllAsync<any>(`
     SELECT p.id, p.name,
       IFNULL((
-        SELECT SUM(CAST(d.amountOriginal AS REAL))
+        SELECT GROUP_CONCAT(d.amountOriginal)
         FROM debts d WHERE d.personId=p.id AND d.type='IOU' AND d.status='open'
-      ),0) AS iouTotal,
+      ),'') AS iouAmounts,
       IFNULL((
-        SELECT SUM(CAST(d.amountOriginal AS REAL))
+        SELECT GROUP_CONCAT(d.amountOriginal)
         FROM debts d WHERE d.personId=p.id AND d.type='UOM' AND d.status='open'
-      ),0) AS uomTotal
+      ),'') AS uomAmounts
     FROM people p
     ORDER BY p.name COLLATE NOCASE;
   `);
-  return rows.map(r => ({
-    ...r,
-    net: (Number(r.uomTotal) - Number(r.iouTotal)).toFixed(2),
-    iouTotal: Number(r.iouTotal).toFixed(2),
-    uomTotal: Number(r.uomTotal).toFixed(2),
-  }));
+  
+  return rows.map(r => {
+    const iouTotal = r.iouAmounts ? 
+      r.iouAmounts.split(',').reduce((sum: string, amt: string) => add(sum, amt), '0') : '0.00';
+    const uomTotal = r.uomAmounts ? 
+      r.uomAmounts.split(',').reduce((sum: string, amt: string) => add(sum, amt), '0') : '0.00';
+    const net = sub(uomTotal, iouTotal);
+    
+    return {
+      id: r.id,
+      name: r.name,
+      iouTotal: toCentsStr(iouTotal),
+      uomTotal: toCentsStr(uomTotal),
+      net: toCentsStr(net),
+    };
+  });
 }
 
 export async function createDebt(dbt: Omit<Debt,'id'|'status'|'createdAt'> & Partial<Pick<Debt,'id'|'status'|'createdAt'>>) {
   const db = await openDB();
-  const id = dbt.id ?? uuid();
+  const id = dbt.id ?? Crypto.randomUUID();
   const status = dbt.status ?? 'open';
   const createdAt = dbt.createdAt ?? new Date().toISOString();
   await db.runAsync(
@@ -52,7 +74,7 @@ export async function createDebt(dbt: Omit<Debt,'id'|'status'|'createdAt'> & Par
 
 export async function addPayment(p: Omit<Payment,'id'>) {
   const db = await openDB();
-  const id = uuid();
+  const id = Crypto.randomUUID();
   await db.runAsync(
     `INSERT INTO payments(id,debtId,amount,date,note) VALUES(?,?,?,?,?)`,
     [id, p.debtId, p.amount, p.date, p.note ?? null]
@@ -67,18 +89,40 @@ export async function addPayment(p: Omit<Payment,'id'>) {
 
 export async function getDebtBalance(debtId: string) {
   const db = await openDB();
-  const base = await db.getFirstAsync<{amountOriginal: string}>('SELECT amountOriginal FROM debts WHERE id=?', [debtId]);
-  const paid = await db.getFirstAsync<{sum: string}>('SELECT IFNULL(SUM(CAST(amount AS REAL)),0) as sum FROM payments WHERE debtId=?', [debtId]);
-  const balance = sub(base?.amountOriginal ?? '0', (paid?.sum ?? '0').toString());
+
+  const base = await db.getFirstAsync<{ amountOriginal: string }>(
+    'SELECT amountOriginal FROM debts WHERE id=?',
+    [debtId]
+  );
+
+  if (!base) {
+    // Fail fast: caller passed a missing/invalid debtId
+    throw new Error(`getDebtBalance: debt not found (id=${debtId})`);
+  }
+
+  const payments = await db.getAllAsync<{ amount: string }>(
+    'SELECT amount FROM payments WHERE debtId=?',
+    [debtId]
+  );
+
+  const totalPaid = payments.reduce((sum, p) => add(sum, p.amount), '0');
+  const balance = sub(base.amountOriginal, totalPaid);
   return balance;
 }
 
 export async function dashboardTotals() {
   const db = await openDB();
-  const iou = await db.getFirstAsync<{sum: string}>(`SELECT IFNULL(SUM(CAST(amountOriginal AS REAL)),0) sum FROM debts WHERE type='IOU' AND status='open'`);
-  const uom = await db.getFirstAsync<{sum: string}>(`SELECT IFNULL(SUM(CAST(amountOriginal AS REAL)),0) sum FROM debts WHERE type='UOM' AND status='open'`);
-  const totalIOU = (Number(iou?.sum ?? 0)).toFixed(2);
-  const totalUOM = (Number(uom?.sum ?? 0)).toFixed(2);
-  const net = (Number(totalUOM) - Number(totalIOU)).toFixed(2);
-  return { totalIOU, totalUOM, net };
+  // Get all amounts as strings to use decimal math
+  const iouRows = await db.getAllAsync<{amountOriginal: string}>(`SELECT amountOriginal FROM debts WHERE type='IOU' AND status='open'`);
+  const uomRows = await db.getAllAsync<{amountOriginal: string}>(`SELECT amountOriginal FROM debts WHERE type='UOM' AND status='open'`);
+  
+  const totalIOU = iouRows.reduce((sum, row) => add(sum, row.amountOriginal), '0');
+  const totalUOM = uomRows.reduce((sum, row) => add(sum, row.amountOriginal), '0');
+  const net = sub(totalUOM, totalIOU);
+  
+  return { 
+    totalIOU: toCentsStr(totalIOU), 
+    totalUOM: toCentsStr(totalUOM), 
+    net: toCentsStr(net) 
+  };
 }
