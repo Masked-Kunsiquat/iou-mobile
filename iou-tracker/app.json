@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -21,13 +21,18 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/android/ic_launcher_foreground.png",
+        "backgroundImage": "./assets/android/ic_launcher_background.png",
+        "monochromeImage": "./assets/android/ic_launcher_monochrome.png"
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "android.permission.READ_CONTACTS"
-      ]
+        "android.permission.READ_CONTACTS",
+        "android.permission.WRITE_CONTACTS",
+        "android.permission.READ_CONTACTS",
+        "android.permission.WRITE_CONTACTS"
+      ],
+      "package": "com.anonymous.ioutracker"
     },
     "web": {
       "favicon": "./assets/favicon.png"
