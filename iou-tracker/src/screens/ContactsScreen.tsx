@@ -59,23 +59,32 @@ export default function ContactsScreen({ onBack }: ContactsScreenProps) {
     }
   };
 
+  // Separate async deletion logic with explicit error handling
+  const performDeletePerson = async (person: Person) => {
+    try {
+      await deletePerson(person.id);
+      await refreshContacts();
+    } catch (error) {
+      console.error('Failed to delete person:', error);
+      Alert.alert(
+        'Cannot Delete',
+        'This person has existing debts. Please settle all debts before deleting.'
+      );
+    }
+  };
+
   const handleDeletePerson = (person: Person) => {
     Alert.alert('Delete Contact', `Are you sure you want to delete ${person.name}?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: async () => {
-          try {
-            await deletePerson(person.id);
-            await refreshContacts();
-          } catch (error) {
-            console.error('Failed to delete person:', error);
-            Alert.alert(
-              'Cannot Delete',
-              'This person has existing debts. Please settle all debts before deleting.'
-            );
-          }
+        // Call the external function without awaiting directly in the Alert callback
+        onPress: () => {
+          performDeletePerson(person).catch((err) => {
+            console.error('Unhandled delete error:', err);
+            Alert.alert('Error', 'Failed to delete contact due to an unexpected error.');
+          });
         },
       },
     ]);
