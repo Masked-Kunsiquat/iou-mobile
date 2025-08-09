@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { ScrollView, Alert } from 'react-native';
 import { Appbar, Card, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -65,13 +65,12 @@ export default function DebtsScreen({
   const [newDebtModalVisible, setNewDebtModalVisible] = useState(false);
   const [newDebtPersonId, setNewDebtPersonId] = useState<string | null>(null);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    setLoading(true);
     try {
       const withBalance = await Promise.all(
         people
-          .filter(
-            (p) => parseFloat((p as PersonWithTotals)[personTotalKey] || '0') > 0
-          )
+          .filter((p) => parseFloat((p as PersonWithTotals)[personTotalKey] || '0') > 0)
           .map(async (person) => {
             const debts = await getDebtsByPersonAndType(person.id, type);
             const debtsWithBalanceRaw = await Promise.all(
@@ -89,17 +88,19 @@ export default function DebtsScreen({
     } finally {
       setLoading(false);
     }
-  };
+  }, [people, personTotalKey, type]);
 
+  // On mount: just refresh store; data will load when `people` updates
   useEffect(() => {
-    refresh().then(loadData);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    refresh();
+  }, [refresh]);
 
+  // Load data whenever people list changes (and deps are stable)
   useEffect(() => {
-    if (people.length) loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [people]);
+    if (people.length) {
+      loadData();
+    }
+  }, [people, loadData]);
 
   const handleDebtPress = (debt: Debt) => {
     setSelectedDebt(debt);
@@ -168,6 +169,11 @@ export default function DebtsScreen({
       await addPayment(payment);
       await refresh();
       await loadData();
+
+      // Close/clear payment modal BEFORE opening detail modal to avoid stacking
+      setPaymentModalVisible(false);
+      setPaymentDebt(null);
+
       const updated = await getDebtWithBalance(payment.debtId);
       if (updated) {
         setSelectedDebt(updated);
