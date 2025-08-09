@@ -6,8 +6,8 @@ import { Person } from '../models/types';
 
 type Props = {
   people: Person[];
-  value: string | undefined;
-  onChange: (id: string) => void;
+  value: Person['id'] | undefined; // use domain ID type
+  onChange: (id: Person['id']) => void; // enforce correct ID type
   label?: string;
   disabled?: boolean;
 };
@@ -25,23 +25,30 @@ export default function ThemedPersonSelect({
   const selected = useMemo(() => people.find((p) => p.id === value), [people, value]);
 
   const anchor = (
-    <Pressable onPress={() => !disabled && setOpen(true)} accessibilityRole="button">
-      <TextInput
-        label={label}
-        value={selected ? selected.name : ''}
-        editable={false}             // display-only; press handled by Pressable
-        pointerEvents="none"         // ensures Pressable gets the touch
-        right={
-          <TextInput.Icon
-            icon={open ? 'menu-up' : 'menu-down'}
-            onPress={() => !disabled && setOpen((v) => !v)}
-          />
-        }
-        mode="outlined"
-        outlineColor={colors.outline}
-        activeOutlineColor={colors.primary}
-        placeholderTextColor={colors.textSecondary}
-      />
+    <Pressable
+      onPress={() => !disabled && setOpen(true)}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+    >
+      <View pointerEvents={disabled ? 'none' : 'auto'}>
+        <TextInput
+          label={label}
+          value={selected ? selected.name : ''}
+          editable={false} // display-only; press handled by Pressable
+          right={
+            <TextInput.Icon
+              icon={open ? 'menu-up' : 'menu-down'}
+              onPress={() => !disabled && setOpen((v) => !v)}
+              disabled={disabled}
+            />
+          }
+          mode="outlined"
+          outlineColor={colors.outline}
+          activeOutlineColor={colors.primary}
+          placeholderTextColor={colors.textSecondary}
+        />
+      </View>
     </Pressable>
   );
 
@@ -56,7 +63,6 @@ export default function ThemedPersonSelect({
           borderColor: colors.outline,
           borderWidth: 1,
         }}
-        // Optional: keep taps for scrolling in the list
         keyboardShouldPersistTaps="handled"
       >
         <ScrollView style={{ maxHeight: 300, backgroundColor: colors.surface }}>
