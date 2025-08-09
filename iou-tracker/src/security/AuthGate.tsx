@@ -8,8 +8,7 @@ import { useSecurityStore } from '../store/securityStore';
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const colors = useThemeColors();
-  const { biometricsEnabled, sessionMs, lastAuthAt, markAuthed } = useSecurityStore();
-  const hasHydrated = useSecurityStore.persist.hasHydrated();
+  const { biometricsEnabled, sessionMs, lastAuthAt, markAuthed, hydrated } = useSecurityStore();
   const [locked, setLocked] = useState<boolean>(biometricsEnabled);
   const [authing, setAuthing] = useState(false);
   const appState = useRef(AppState.currentState);
@@ -25,16 +24,16 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       } else {
         setLocked(true);
       }
-    } catch (err) {
+    } catch {
       setLocked(true);
     } finally {
       setAuthing(false);
     }
   };
 
-  // On mount: only lock if enabled & session expired
+  // On mount: only lock if enabled & session expired (post-hydration)
   useEffect(() => {
-    if (!hasHydrated) return; // Wait for store hydration
+    if (!hydrated) return; // wait for persisted state
     if (!biometricsEnabled) {
       setLocked(false);
       return;
@@ -46,14 +45,15 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       setLocked(true);
       tryAuth('Authenticate to continue');
     }
-  }, [biometricsEnabled, sessionMs, lastAuthAt, hasHydrated]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [biometricsEnabled, sessionMs, lastAuthAt, hydrated]);
 
   // On resume: if enabled and session expired, lock and prompt
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       const prev = appState.current;
       appState.current = state;
-      if (!biometricsEnabled || !hasHydrated) return;
+      if (!biometricsEnabled || !hydrated) return;
 
       if ((prev === 'background' || prev === 'inactive') && state === 'active') {
         const expired = !lastAuthAt || Date.now() - lastAuthAt >= sessionMs;
@@ -64,7 +64,15 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       }
     });
     return () => sub.remove();
-  }, [biometricsEnabled, sessionMs, lastAuthAt, hasHydrated]);
+  }, [biometricsEnabled, sessionMs, lastAuthAt, hydrated]);
+
+  if (!hydrated) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
 
   if (!biometricsEnabled || !locked) return <>{children}</>;
 
@@ -82,12 +90,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       <Text style={{ color: colors.textPrimary, marginTop: 16, marginBottom: 8 }}>
         Locked — biometric authentication required
       </Text>
-      <Button
-        mode="contained"
-        onPress={() => tryAuth()}
-        icon="fingerprint"
-        disabled={authing}
-      >
+      <Button mode="contained" onPress={() => tryAuth()} icon="fingerprint" disabled={authing}>
         {authing ? 'Authenticating…' : 'Unlock'}
       </Button>
     </View>
