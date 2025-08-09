@@ -3,21 +3,60 @@ import { openDB } from './db';
 import { add, sub, lte, toCentsStr, d } from '../utils/money';
 import { Debt, Payment, Person } from '../models/types';
 
-export async function upsertPerson(
-  p: Omit<Person, 'id'> & Partial<Pick<Person, 'id'>>
-) {
+export async function upsertPerson(p: Omit<Person,'id'> & Partial<Pick<Person,'id'>>) {
   const db = await openDB();
   const id = p.id ?? Crypto.randomUUID();
   await db.runAsync(
-    `INSERT INTO people (id, name, contact, notes)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
-       name = excluded.name,
-       contact = excluded.contact,
-       notes = excluded.notes`,
+    'INSERT OR REPLACE INTO people(id,name,contact,notes) VALUES(?,?,?,?)',
     [id, p.name, p.contact ?? null, p.notes ?? null]
   );
   return id;
+}
+
+export async function getDebtsByPersonAndType(personId: string, type: 'IOU' | 'UOM') {
+  const db = await openDB();
+  return await db.getAllAsync<Debt>(`
+    SELECT * FROM debts 
+    WHERE personId = ? AND type = ? 
+    ORDER BY createdAt DESC
+  `, [personId, type]);
+}
+
+export async function getPaymentsByDebt(debtId: string) {
+  const db = await openDB();
+  return await db.getAllAsync<Payment>(`
+    SELECT * FROM payments 
+    WHERE debtId = ? 
+    ORDER BY date DESC
+  `, [debtId]);
+}
+
+export async function getDebtWithBalance(debtId: string) {
+  const db = await openDB();
+  const debt = await db.getFirstAsync<Debt>('SELECT * FROM debts WHERE id=?', [debtId]);
+  if (!debt) return null;
+  
+  const balance = await getDebtBalance(debtId);
+  return { ...debt, balance };
+}
+
+export async function deletePerson(id: string) {
+  const db = await openDB();
+  // Check if person has any debts
+  const debts = await db.getAllAsync('SELECT id FROM debts WHERE personId=?', [id]);
+  if (debts.length > 0) {
+    throw new Error('Cannot delete person with existing debts');
+  }
+  await db.runAsync('DELETE FROM people WHERE id=?', [id]);
+}
+
+export async function listAllPeople() {
+  const db = await openDB();
+  return await db.getAllAsync<Person>(`
+    SELECT id, name, contact, notes
+    FROM people 
+    ORDER BY name COLLATE NOCASE
+  `);
 }
 
 export async function getPersonById(id: string) {
@@ -89,24 +128,10 @@ export async function addPayment(p: Omit<Payment,'id'>) {
 
 export async function getDebtBalance(debtId: string) {
   const db = await openDB();
-
-  const base = await db.getFirstAsync<{ amountOriginal: string }>(
-    'SELECT amountOriginal FROM debts WHERE id=?',
-    [debtId]
-  );
-
-  if (!base) {
-    // Fail fast: caller passed a missing/invalid debtId
-    throw new Error(`getDebtBalance: debt not found (id=${debtId})`);
-  }
-
-  const payments = await db.getAllAsync<{ amount: string }>(
-    'SELECT amount FROM payments WHERE debtId=?',
-    [debtId]
-  );
-
+  const base = await db.getFirstAsync<{amountOriginal: string}>('SELECT amountOriginal FROM debts WHERE id=?', [debtId]);
+  const payments = await db.getAllAsync<{amount: string}>('SELECT amount FROM payments WHERE debtId=?', [debtId]);
   const totalPaid = payments.reduce((sum, p) => add(sum, p.amount), '0');
-  const balance = sub(base.amountOriginal, totalPaid);
+  const balance = sub(base?.amountOriginal ?? '0', totalPaid);
   return balance;
 }
 
