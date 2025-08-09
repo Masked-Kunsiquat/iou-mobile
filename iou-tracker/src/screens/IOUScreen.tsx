@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { ScrollView, Alert } from 'react-native';
 import { Card, Text, Provider as PaperProvider, Appbar } from 'react-native-paper';
 import { useLedgerStore } from '../store/ledgerStore';
-import { getDebtsByPersonAndType, getDebtWithBalance, updateDebt, deleteDebt, markDebtSettled } from '../db/repo';
+import { getDebtsByPersonAndType, getDebtWithBalance, updateDebt, deleteDebt, markDebtSettled, addPayment } from '../db/repo';
 import ExpandablePersonCard from '../components/ExpandablePersonCard';
 import DebtDetailModal from '../components/DebtDetailModal';
 import EditDebtModal from '../components/EditDebtModal';
+import PaymentModal from '../components/PaymentModal';
 import { Debt } from '../models/types';
 
 interface IOUScreenProps {
@@ -24,6 +25,8 @@ export default function IOUScreen({ onBack, onAddIOUForPerson }: IOUScreenProps)
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [paymentDebt, setPaymentDebt] = useState<Debt | null>(null);
 
   const loadIOUData = async () => {
     try {
@@ -114,8 +117,37 @@ export default function IOUScreen({ onBack, onAddIOUForPerson }: IOUScreenProps)
   };
 
   const handleAddPayment = (debtId: string) => {
-    // This will be implemented in the next commit
-    Alert.alert('Coming Soon', 'Payment functionality will be added in the next update');
+    const debt = peopleWithDebts
+      .flatMap(({ debts }) => debts)
+      .find(d => d.id === debtId);
+    if (debt) {
+      setPaymentDebt(debt);
+      setPaymentModalVisible(true);
+      setDetailModalVisible(false);
+    }
+  };
+
+  const handleSavePayment = async (payment: {
+    debtId: string;
+    amount: string;
+    date: string;
+    note?: string;
+  }) => {
+    try {
+      await addPayment(payment);
+      await refresh();
+      await loadIOUData();
+      
+      // Reopen detail modal to show updated payment history
+      const updatedDebt = await getDebtWithBalance(payment.debtId);
+      if (updatedDebt) {
+        setSelectedDebt(updatedDebt);
+        setDetailModalVisible(true);
+      }
+    } catch (error) {
+      console.error('Failed to add payment:', error);
+      Alert.alert('Error', 'Failed to add payment');
+    }
   };
 
   if (loading) {
@@ -193,6 +225,13 @@ export default function IOUScreen({ onBack, onAddIOUForPerson }: IOUScreenProps)
         onDismiss={() => setEditModalVisible(false)}
         onSave={handleSaveEdit}
         debt={editingDebt}
+      />
+
+      <PaymentModal
+        visible={paymentModalVisible}
+        onDismiss={() => setPaymentModalVisible(false)}
+        onSave={handleSavePayment}
+        debt={paymentDebt}
       />
     </PaperProvider>
   );
