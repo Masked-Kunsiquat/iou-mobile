@@ -151,3 +151,50 @@ export async function dashboardTotals() {
     net: toCentsStr(net) 
   };
 }
+
+export async function updateDebt(
+  id: string, 
+  updates: Partial<Pick<Debt, 'description' | 'amountOriginal' | 'dueAt'>>
+) {
+  const db = await openDB();
+  const setClause = [];
+  const values = [];
+  
+  if (updates.description !== undefined) {
+    setClause.push('description = ?');
+    values.push(updates.description);
+  }
+  if (updates.amountOriginal !== undefined) {
+    setClause.push('amountOriginal = ?');
+    values.push(updates.amountOriginal);
+  }
+  if (updates.dueAt !== undefined) {
+    setClause.push('dueAt = ?');
+    values.push(updates.dueAt);
+  }
+  
+  if (setClause.length === 0) return;
+  
+  values.push(id);
+  await db.runAsync(
+    `UPDATE debts SET ${setClause.join(', ')} WHERE id = ?`,
+    values
+  );
+}
+
+export async function deleteDebt(id: string) {
+  const db = await openDB();
+  // Delete payments first due to foreign key constraint
+  await db.runAsync('DELETE FROM payments WHERE debtId = ?', [id]);
+  await db.runAsync('DELETE FROM debts WHERE id = ?', [id]);
+}
+
+export async function markDebtSettled(id: string) {
+  const db = await openDB();
+  await db.runAsync('UPDATE debts SET status = ? WHERE id = ?', ['settled', id]);
+}
+
+export async function getDebtById(id: string): Promise<Debt | null> {
+  const db = await openDB();
+  return await db.getFirstAsync<Debt>('SELECT * FROM debts WHERE id = ?', [id]);
+}

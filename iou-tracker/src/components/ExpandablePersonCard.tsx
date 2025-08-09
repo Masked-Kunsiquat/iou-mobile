@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { View, TouchableOpacity } from 'react-native';
 import { Card, Text, IconButton, Divider } from 'react-native-paper';
 import { Debt } from '../models/types';
 
@@ -9,6 +9,7 @@ interface ExpandablePersonCardProps {
   debts: (Debt & { balance: string })[];
   type: 'IOU' | 'UOM';
   onAddDebt?: () => void;
+  onDebtPress?: (debt: Debt) => void;
 }
 
 export default function ExpandablePersonCard({ 
@@ -16,7 +17,8 @@ export default function ExpandablePersonCard({
   total, 
   debts, 
   type,
-  onAddDebt 
+  onAddDebt,
+  onDebtPress
 }: ExpandablePersonCardProps) {
   const [expanded, setExpanded] = useState(false);
   
@@ -84,7 +86,11 @@ export default function ExpandablePersonCard({
           <View style={{ marginTop: 16 }}>
             <Divider style={{ marginBottom: 12 }} />
             {debts.map((debt, index) => (
-              <View key={debt.id}>
+              <TouchableOpacity 
+                key={debt.id}
+                onPress={() => onDebtPress && onDebtPress(debt)}
+                activeOpacity={0.7}
+              >
                 <View style={{ 
                   paddingVertical: 8,
                   flexDirection: 'row',
@@ -114,11 +120,18 @@ export default function ExpandablePersonCard({
                       {getStatusText(debt)}
                     </Text>
                   </View>
+                  {onDebtPress && (
+                    <IconButton
+                      icon="chevron-right"
+                      size={20}
+                      style={{ margin: 0 }}
+                    />
+                  )}
                 </View>
                 {index < debts.length - 1 && (
                   <Divider style={{ marginVertical: 8 }} />
                 )}
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
