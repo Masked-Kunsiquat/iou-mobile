@@ -1,13 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import { ScrollView, View, TouchableOpacity } from 'react-native';
 import { Card, Text, Provider as PaperProvider, FAB } from 'react-native-paper';
 import { useLedgerStore } from '../store/ledgerStore';
 import PersonModal from '../components/PersonModal';
 import { upsertPerson, getPersonById } from '../db/repo';
 import { Person } from '../models/types';
 
-export default function Dashboard() {
-  const { dashboard, people, refresh } = useLedgerStore();
+interface DashboardProps {
+  onNavigateToIOUs?: () => void;
+  onNavigateToUOMs?: () => void;
+  onNavigateToContacts?: () => void;
+}
+
+export default function Dashboard({ onNavigateToIOUs, onNavigateToUOMs, onNavigateToContacts }: DashboardProps) {
+  const { dashboard, refresh } = useLedgerStore();
   const [personModalVisible, setPersonModalVisible] = useState(false);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
 
@@ -18,13 +24,6 @@ export default function Dashboard() {
     await refresh();
   };
 
-  const handleEditPerson = async (personSummary: any) => {
-    // Fetch full person data including contact and notes
-    const fullPerson = await getPersonById(personSummary.id);
-    setEditingPerson(fullPerson);
-    setPersonModalVisible(true);
-  };
-
   const handleAddPerson = () => {
     setEditingPerson(null);
     setPersonModalVisible(true);
@@ -33,49 +32,72 @@ export default function Dashboard() {
   return (
     <PaperProvider>
       <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+        {/* Total Cards - IOU, Net, UOM */}
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Card style={{ flex: 1 }}><Card.Content>
-            <Text variant="titleSmall">Total I Owe (IOU)</Text>
-            <Text variant="headlineSmall">${dashboard?.totalIOU ?? '0.00'}</Text>
-          </Card.Content></Card>
-          <Card style={{ flex: 1 }}><Card.Content>
-            <Text variant="titleSmall">Total Owed to Me (UOM)</Text>
-            <Text variant="headlineSmall">${dashboard?.totalUOM ?? '0.00'}</Text>
-          </Card.Content></Card>
-          <Card style={{ flex: 1 }}><Card.Content>
-            <Text variant="titleSmall">Net (UOM − IOU)</Text>
-            <Text variant="headlineSmall">${dashboard?.net ?? '0.00'}</Text>
-          </Card.Content></Card>
-        </View>
-
-        <Card>
-          <Card.Title title="People" />
-          <Card.Content style={{ gap: 8 }}>
-            {people.map(p => (
-              <View 
-                key={p.id} 
+          <TouchableOpacity style={{ flex: 1 }} onPress={onNavigateToIOUs}>
+            <Card>
+              <Card.Content>
+                <Text variant="titleSmall">I Owe (IOU)</Text>
+                <Text variant="headlineSmall" style={{ color: '#d32f2f' }}>
+                  ${dashboard?.totalIOU ?? '0.00'}
+                </Text>
+              </Card.Content>
+            </Card>
+          </TouchableOpacity>
+          
+          <Card style={{ flex: 1 }}>
+            <Card.Content>
+              <Text variant="titleSmall">Net Balance</Text>
+              <Text 
+                variant="headlineSmall" 
                 style={{ 
-                  paddingVertical: 8, 
-                  borderBottomWidth: 1, 
-                  borderColor: '#eee',
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
+                  color: dashboard && parseFloat(dashboard.net) >= 0 ? '#2e7d32' : '#d32f2f' 
                 }}
               >
-                <View style={{ flex: 1 }}>
-                  <Text variant="titleMedium">{p.name}</Text>
-                  <Text>IOU: ${p.iouTotal}   UOM: ${p.uomTotal}   Net: ${p.net}</Text>
-                </View>
-                <Text 
-                  style={{ color: 'blue', paddingHorizontal: 8 }}
-                  onPress={() => handleEditPerson(p)}
-                >
-                  Edit
+                ${dashboard?.net ?? '0.00'}
+              </Text>
+            </Card.Content>
+          </Card>
+          
+          <TouchableOpacity style={{ flex: 1 }} onPress={onNavigateToUOMs}>
+            <Card>
+              <Card.Content>
+                <Text variant="titleSmall">Owed to Me (UOM)</Text>
+                <Text variant="headlineSmall" style={{ color: '#2e7d32' }}>
+                  ${dashboard?.totalUOM ?? '0.00'}
                 </Text>
-              </View>
-            ))}
-            {people.length === 0 && <Text>No people yet. Tap + to add someone.</Text>}
+              </Card.Content>
+            </Card>
+          </TouchableOpacity>
+        </View>
+
+        {/* Contacts Navigation */}
+        <TouchableOpacity onPress={onNavigateToContacts}>
+          <Card style={{ height: 60 }}>
+            <Card.Content style={{ 
+              flexDirection: 'row', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              height: '100%'
+            }}>
+              <Text variant="titleMedium">Manage Contacts</Text>
+            </Card.Content>
+          </Card>
+        </TouchableOpacity>
+
+        {/* Placeholder for future graph */}
+        <Card style={{ height: 200 }}>
+          <Card.Content style={{ 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            height: '100%'
+          }}>
+            <Text variant="titleMedium" style={{ color: '#666' }}>
+              📈 IOU vs UOM Graph
+            </Text>
+            <Text variant="bodyMedium" style={{ color: '#999', marginTop: 8 }}>
+              Coming soon
+            </Text>
           </Card.Content>
         </Card>
       </ScrollView>
