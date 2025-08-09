@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Portal, TextInput, Button, Text, IconButton } from 'react-native-paper';
 import { View, Alert } from 'react-native';
 import * as Contacts from 'expo-contacts';
@@ -12,10 +12,20 @@ interface PersonModalProps {
 }
 
 export default function PersonModal({ visible, onDismiss, onSave, editPerson }: PersonModalProps) {
-  const [name, setName] = useState(editPerson?.name ?? '');
-  const [contact, setContact] = useState(editPerson?.contact ?? '');
-  const [notes, setNotes] = useState(editPerson?.notes ?? '');
+  const [name, setName] = useState('');
+  const [contact, setContact] = useState('');
+  const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
+
+  // Sync form state when modal opens or editPerson changes
+  useEffect(() => {
+    if (visible) {
+      setName(editPerson?.name ?? '');
+      setContact(editPerson?.contact ?? '');
+      setNotes(editPerson?.notes ?? '');
+      setError('');
+    }
+  }, [visible, editPerson]);
 
   const handleSave = () => {
     if (!name.trim()) {
@@ -29,16 +39,10 @@ export default function PersonModal({ visible, onDismiss, onSave, editPerson }: 
       contact: contact.trim() || undefined,
       notes: notes.trim() || undefined,
     });
-    setName('');
-    setContact('');
-    setNotes('');
     onDismiss();
   };
 
   const handleCancel = () => {
-    setName(editPerson?.name ?? '');
-    setContact(editPerson?.contact ?? '');
-    setNotes(editPerson?.notes ?? '');
     setError('');
     onDismiss();
   };
