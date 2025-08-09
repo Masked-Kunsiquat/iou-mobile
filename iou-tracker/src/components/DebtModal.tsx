@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Portal, TextInput, Button, Text, RadioButton, Chip } from 'react-native-paper';
-import { View, ScrollView } from 'react-native';
+import { View, ScrollView, useWindowDimensions } from 'react-native';
 import ThemedPersonSelect from './ThemedPersonSelect';
 import { useLedgerStore } from '../store/ledgerStore';
 import { DebtType } from '../models/types';
@@ -32,6 +32,7 @@ export default function DebtModal({
 }: DebtModalProps) {
   const { people } = useLedgerStore();
   const colors = useThemeColors();
+  const { height } = useWindowDimensions();
 
   const [type, setType] = useState<DebtType>(fixedType || defaultType || 'IOU');
   const [personId, setPersonId] = useState<string>(fixedPersonId || (people[0]?.id ?? ''));
@@ -99,7 +100,7 @@ export default function DebtModal({
           padding: 20,
           margin: 20,
           borderRadius: 8,
-          maxHeight: '80%',
+          maxHeight: height * 0.8, // numeric value required by RN
         }}
       >
         <ScrollView>
