@@ -24,7 +24,8 @@ export default function PaymentModal({ visible, onDismiss, onSave, debt }: Payme
   const [date, setDate] = useState('');
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
-  const [balance, setBalance] = useState('0.00');
+  // Keep balance numeric to avoid NaN/string issues downstream
+  const [balance, setBalance] = useState<number>(0);
 
   useEffect(() => {
     if (visible && debt) {
@@ -33,7 +34,7 @@ export default function PaymentModal({ visible, onDismiss, onSave, debt }: Payme
       setDate(new Date().toISOString().split('T')[0]);
       setNote('');
       setError('');
-      
+
       // Load current balance
       loadBalance();
     }
@@ -42,31 +43,55 @@ export default function PaymentModal({ visible, onDismiss, onSave, debt }: Payme
   const loadBalance = async () => {
     if (!debt) return;
     try {
-      const currentBalance = await getDebtBalance(debt.id);
-      setBalance(currentBalance);
+      const raw = await getDebtBalance(debt.id);
+      // Normalize to number immediately; handle string/number and comma decimals
+      const n =
+        typeof raw === 'number'
+          ? raw
+          : parseFloat(String(raw).replace(/,/g, '.'));
+      setBalance(Number.isFinite(n) ? n : 0);
     } catch (error) {
       console.error('Failed to load balance:', error);
+      setBalance(0);
     }
+  };
+
+  // Normalize user input: convert commas to dots, allow only digits and a single dot,
+  // and clamp to 2 decimals for display.
+  const normalizeAmountInput = (text: string) => {
+    const withDot = text.replace(/,/g, '.');
+    const cleaned = withDot.replace(/[^0-9.]/g, '');
+    const parts = cleaned.split('.');
+    if (parts.length > 2) {
+      return parts[0] + '.' + parts.slice(1).join('');
+    }
+    if (parts[1] && parts[1].length > 2) {
+      return parts[0] + '.' + parts[1].substring(0, 2);
+    }
+    return cleaned;
   };
 
   const handleSave = () => {
     if (!debt) return;
-    
-    if (!amount.trim() || isNaN(parseFloat(amount))) {
+
+    // Replace commas with dots BEFORE parsing to avoid partial parsing/truncation
+    const normalized = amount.trim().replace(/,/g, '.');
+
+    if (!normalized || isNaN(parseFloat(normalized))) {
       setError('Please enter a valid amount');
       return;
     }
-    
-    const paymentAmount = parseFloat(amount);
-    const currentBalance = parseFloat(balance);
-    
+
+    const paymentAmount = parseFloat(normalized);
+    const currentBalance = balance;
+
     if (paymentAmount <= 0) {
       setError('Amount must be greater than 0');
       return;
     }
-    
+
     if (paymentAmount > currentBalance) {
-      setError(`Payment cannot exceed balance of $${balance}`);
+      setError(`Payment cannot exceed balance of $${currentBalance.toFixed(2)}`);
       return;
     }
 
@@ -90,29 +115,21 @@ export default function PaymentModal({ visible, onDismiss, onSave, debt }: Payme
     onDismiss();
   };
 
-  const formatAmount = (text: string) => {
-    const cleaned = text.replace(/[^0-9.]/g, '');
-    const parts = cleaned.split('.');
-    if (parts.length > 2) {
-      return parts[0] + '.' + parts.slice(1).join('');
-    }
-    if (parts[1] && parts[1].length > 2) {
-      return parts[0] + '.' + parts[1].substring(0, 2);
-    }
-    return cleaned;
-  };
+  // Use the normalizer for all amount input changes
+  const formatAmount = normalizeAmountInput;
 
   const handleQuickAmount = (percentage: number) => {
-    const quickAmount = (parseFloat(balance) * percentage).toFixed(2);
+    const quickAmount = (balance * percentage).toFixed(2);
     setAmount(quickAmount);
   };
 
   if (!debt) return null;
 
+  const parsedAmount = amount ? parseFloat(amount.replace(/,/g, '.')) : NaN;
   const remainingAfterPayment =
-    amount && !isNaN(parseFloat(amount))
-      ? Math.max(0, parseFloat(balance) - parseFloat(amount)).toFixed(2)
-      : balance;
+    amount && !isNaN(parsedAmount)
+      ? Math.max(0, balance - parsedAmount).toFixed(2)
+      : balance.toFixed(2);
 
   const isSettledAfter = parseFloat(remainingAfterPayment) <= 0.01;
 
@@ -153,7 +170,7 @@ export default function PaymentModal({ visible, onDismiss, onSave, debt }: Payme
                 color: debt.type === 'IOU' ? colors.iouColor : colors.uomColor,
               }}
             >
-              ${balance}
+              ${balance.toFixed(2)}
             </Text>
           </View>
 
@@ -182,12 +199,12 @@ export default function PaymentModal({ visible, onDismiss, onSave, debt }: Payme
             <Chip mode="outlined" onPress={() => handleQuickAmount(0.75)} compact>
               75%
             </Chip>
-            <Chip mode="outlined" onPress={() => setAmount(balance)} compact>
+            <Chip mode="outlined" onPress={() => setAmount(balance.toFixed(2))} compact>
               Full
             </Chip>
           </View>
 
-          {amount && !isNaN(parseFloat(amount)) && parseFloat(amount) > 0 && (
+          {amount && !isNaN(parsedAmount) && parsedAmount > 0 && (
             <View
               style={{
                 backgroundColor: colors.surfaceVariant,
