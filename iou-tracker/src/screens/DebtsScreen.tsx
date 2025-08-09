@@ -17,16 +17,21 @@ import DebtDetailModal from '../components/DebtDetailModal';
 import EditDebtModal from '../components/EditDebtModal';
 import PaymentModal from '../components/PaymentModal';
 import DebtModal from '../components/DebtModal';
-import { Debt, DebtType } from '../models/types';
+import { Debt, DebtType, Person } from '../models/types';
 import { useThemeColors } from '../theme/ThemeProvider';
 
+type PersonWithTotals = Person & {
+  iouTotal?: string;
+  uomTotal?: string;
+};
+
 type DebtsScreenProps = {
-  type: DebtType;                           // 'IOU' | 'UOM'
-  title: string;                            // Appbar title
-  totalLabel: string;                       // Card header text
-  totalValue: (d: { totalIOU?: string; totalUOM?: string; }) => string | undefined; // dashboard -> total
-  personTotalKey: 'iouTotal' | 'uomTotal';  // which field on person to display
-  totalColor: (colors: ReturnType<typeof useThemeColors>) => string; // color for total
+  type: DebtType;
+  title: string;
+  totalLabel: string;
+  totalValue: (d: { totalIOU?: string; totalUOM?: string }) => string | undefined;
+  personTotalKey: 'iouTotal' | 'uomTotal';
+  totalColor: (colors: ReturnType<typeof useThemeColors>) => string;
   onBack?: () => void;
 };
 
@@ -44,7 +49,7 @@ export default function DebtsScreen({
   const insets = useSafeAreaInsets();
 
   const [peopleWithDebts, setPeopleWithDebts] = useState<
-    Array<{ person: any; debts: (Debt & { balance: string })[] }>
+    Array<{ person: PersonWithTotals; debts: (Debt & { balance: string })[] }>
   >([]);
   const [loading, setLoading] = useState(true);
 
@@ -64,13 +69,18 @@ export default function DebtsScreen({
     try {
       const withBalance = await Promise.all(
         people
-          .filter((p) => parseFloat((p as any)[personTotalKey] || '0') > 0)
+          .filter(
+            (p) => parseFloat((p as PersonWithTotals)[personTotalKey] || '0') > 0
+          )
           .map(async (person) => {
             const debts = await getDebtsByPersonAndType(person.id, type);
-            const debtsWithBalance = await Promise.all(
-              debts.map(async (debt) => (await getDebtWithBalance(debt.id))!)
+            const debtsWithBalanceRaw = await Promise.all(
+              debts.map((debt) => getDebtWithBalance(debt.id))
             );
-            return { person, debts: debtsWithBalance };
+            const debtsWithBalance = debtsWithBalanceRaw.filter(
+              (d): d is Debt & { balance: string } => !!d
+            );
+            return { person: person as PersonWithTotals, debts: debtsWithBalance };
           })
       );
       setPeopleWithDebts(withBalance);
@@ -237,7 +247,7 @@ export default function DebtsScreen({
           <ExpandablePersonCard
             key={person.id}
             personName={person.name}
-            total={(person as any)[personTotalKey]}
+            total={person[personTotalKey]}
             debts={debts}
             type={type}
             onAddDebt={() => handleAddDebtForPerson(person.id)}
