@@ -1,20 +1,19 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect } from 'react';
+import Dashboard from './src/screens/Dashboard';
+import { migrate } from './src/db/migrations';
+import { seedIfEmpty } from './src/db/seed';
+import { openDB } from './src/db/db';
 
 export default function App() {
-  return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
-  );
-}
+  useEffect(() => {
+    (async () => {
+      await migrate();
+      // seed once if people table is empty
+      const db = await openDB();
+      const row = await db.getFirstAsync<{count: number}>('SELECT COUNT(*) as count FROM people');
+      if (!row || row.count === 0) await seedIfEmpty();
+    })();
+  }, []);
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+  return <Dashboard />;
+}
