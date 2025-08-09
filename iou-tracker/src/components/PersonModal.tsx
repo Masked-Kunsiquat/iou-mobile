@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Modal, Portal, TextInput, Button, Text } from 'react-native-paper';
-import { View } from 'react-native';
+import { Modal, Portal, TextInput, Button, Text, IconButton } from 'react-native-paper';
+import { View, Alert } from 'react-native';
+import * as Contacts from 'expo-contacts';
 import { Person } from '../models/types';
 
 interface PersonModalProps {
@@ -42,6 +43,41 @@ export default function PersonModal({ visible, onDismiss, onSave, editPerson }: 
     onDismiss();
   };
 
+  const handleImportContact = async () => {
+    try {
+      const { status } = await Contacts.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'Please grant contacts permission to import from your contacts.');
+        return;
+      }
+
+      const selectedContact = await Contacts.presentContactPickerAsync();
+      
+      if (!selectedContact) {
+        return; // User cancelled or no contact selected
+      }
+      
+      // Use contact name if current name is empty
+      if (!name.trim() && selectedContact.name) {
+        setName(selectedContact.name);
+      }
+
+      // Get primary phone or email
+      let contactInfo = '';
+      if (selectedContact.phoneNumbers && selectedContact.phoneNumbers.length > 0) {
+        contactInfo = selectedContact.phoneNumbers[0].number || '';
+      } else if (selectedContact.emails && selectedContact.emails.length > 0) {
+        contactInfo = selectedContact.emails[0].email || '';
+      }
+
+      if (contactInfo) {
+        setContact(contactInfo);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to import contact. Please try again.');
+    }
+  };
+
   return (
     <Portal>
       <Modal visible={visible} onDismiss={handleCancel} contentContainerStyle={{
@@ -50,9 +86,17 @@ export default function PersonModal({ visible, onDismiss, onSave, editPerson }: 
         margin: 20,
         borderRadius: 8,
       }}>
-        <Text variant="headlineSmall" style={{ marginBottom: 16 }}>
-          {editPerson ? 'Edit Person' : 'Add Person'}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+          <Text variant="headlineSmall" style={{ flex: 1 }}>
+            {editPerson ? 'Edit Person' : 'Add Person'}
+          </Text>
+          <IconButton
+            icon="contacts"
+            mode="contained-tonal"
+            onPress={handleImportContact}
+            size={20}
+          />
+        </View>
         
         <TextInput
           label="Name *"
@@ -62,12 +106,14 @@ export default function PersonModal({ visible, onDismiss, onSave, editPerson }: 
           error={!!error}
         />
         
-        <TextInput
-          label="Contact (phone/email)"
-          value={contact}
-          onChangeText={setContact}
-          style={{ marginBottom: 12 }}
-        />
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+          <TextInput
+            label="Contact (phone/email)"
+            value={contact}
+            onChangeText={setContact}
+            style={{ flex: 1 }}
+          />
+        </View>
         
         <TextInput
           label="Notes"

@@ -1,11 +1,11 @@
-import { v4 as uuid } from 'uuid';
+import * as Crypto from 'expo-crypto';
 import { openDB } from './db';
 import { add, sub, lte, toCentsStr, d } from '../utils/money';
 import { Debt, Payment, Person } from '../models/types';
 
 export async function upsertPerson(p: Omit<Person,'id'> & Partial<Pick<Person,'id'>>) {
   const db = await openDB();
-  const id = p.id ?? uuid();
+  const id = p.id ?? Crypto.randomUUID();
   await db.runAsync(
     'INSERT OR REPLACE INTO people(id,name,contact,notes) VALUES(?,?,?,?)',
     [id, p.name, p.contact ?? null, p.notes ?? null]
@@ -54,7 +54,7 @@ export async function listPeopleWithTotals() {
 
 export async function createDebt(dbt: Omit<Debt,'id'|'status'|'createdAt'> & Partial<Pick<Debt,'id'|'status'|'createdAt'>>) {
   const db = await openDB();
-  const id = dbt.id ?? uuid();
+  const id = dbt.id ?? Crypto.randomUUID();
   const status = dbt.status ?? 'open';
   const createdAt = dbt.createdAt ?? new Date().toISOString();
   await db.runAsync(
@@ -67,7 +67,7 @@ export async function createDebt(dbt: Omit<Debt,'id'|'status'|'createdAt'> & Par
 
 export async function addPayment(p: Omit<Payment,'id'>) {
   const db = await openDB();
-  const id = uuid();
+  const id = Crypto.randomUUID();
   await db.runAsync(
     `INSERT INTO payments(id,debtId,amount,date,note) VALUES(?,?,?,?,?)`,
     [id, p.debtId, p.amount, p.date, p.note ?? null]
