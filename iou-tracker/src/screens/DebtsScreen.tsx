@@ -247,7 +247,7 @@ export default function DebtsScreen({
           <ExpandablePersonCard
             key={person.id}
             personName={person.name}
-            total={person[personTotalKey]}
+            total={person[personTotalKey] ?? '0.00'}
             debts={debts}
             type={type}
             onAddDebt={() => handleAddDebtForPerson(person.id)}
