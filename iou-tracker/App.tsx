@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Dashboard from './src/screens/Dashboard';
 import IOUScreen from './src/screens/IOUScreen';
 import UOMScreen from './src/screens/UOMScreen';
@@ -19,7 +20,7 @@ function AppContent() {
     (async () => {
       await migrate();
       const db = await openDB();
-      const row = await db.getFirstAsync<{count: number}>('SELECT COUNT(*) as count FROM people');
+      const row = await db.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM people');
       if (!row || row.count === 0) await seedIfEmpty();
     })();
   }, []);
@@ -45,7 +46,11 @@ function AppContent() {
 
   return (
     <>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <StatusBar
+        translucent={false}
+        backgroundColor="transparent"
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+      />
       {renderScreen()}
     </>
   );
@@ -53,8 +58,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AppContent />
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

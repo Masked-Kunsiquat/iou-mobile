@@ -18,6 +18,7 @@ import PaymentModal from '../components/PaymentModal';
 import DebtModal from '../components/DebtModal'; // NEW
 import { Debt, DebtType } from '../models/types';
 import { useThemeColors } from '../theme/ThemeProvider';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface UOMScreenProps {
   onBack?: () => void;
@@ -27,6 +28,7 @@ interface UOMScreenProps {
 export default function UOMScreen({ onBack, onAddUOMForPerson }: UOMScreenProps) {
   const { dashboard, people, refresh } = useLedgerStore();
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
 
   const [peopleWithDebts, setPeopleWithDebts] = useState<
     Array<{ person: any; debts: (Debt & { balance: string })[] }>
@@ -181,12 +183,12 @@ export default function UOMScreen({ onBack, onAddUOMForPerson }: UOMScreenProps)
   if (loading) {
     return (
       <>
-        <Appbar.Header>
+        <Appbar.Header statusBarHeight={insets.top}>
           <Appbar.BackAction onPress={onBack} />
           <Appbar.Content title="Owed to Me (UOMs)" />
         </Appbar.Header>
         <ScrollView
-          contentContainerStyle={{ padding: 16 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 16 + insets.bottom }}
           style={{ backgroundColor: colors.background }}
         >
           <Text style={{ color: colors.textSecondary }}>Loading...</Text>
@@ -197,13 +199,13 @@ export default function UOMScreen({ onBack, onAddUOMForPerson }: UOMScreenProps)
 
   return (
     <>
-      <Appbar.Header>
+      <Appbar.Header statusBarHeight={insets.top}>
         <Appbar.BackAction onPress={onBack} />
         <Appbar.Content title="Owed to Me (UOMs)" />
       </Appbar.Header>
 
       <ScrollView
-        contentContainerStyle={{ padding: 16, gap: 12 }}
+        contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 16 + insets.bottom }}
         style={{ backgroundColor: colors.background }}
       >
         <Card style={{ backgroundColor: colors.surface }}>
@@ -221,9 +223,7 @@ export default function UOMScreen({ onBack, onAddUOMForPerson }: UOMScreenProps)
             total={person.uomTotal}
             debts={debts}
             type="UOM"
-            onAddDebt={() =>
-              handleAddDebtForPerson(person.id) ?? onAddUOMForPerson?.(person.id)
-            }
+            onAddDebt={() => handleAddDebtForPerson(person.id) ?? onAddUOMForPerson?.(person.id)}
             onDebtPress={handleDebtPress}
           />
         ))}

@@ -5,6 +5,7 @@ import { upsertPerson, getPersonById, deletePerson, listAllPeople } from '../db/
 import PersonModal from '../components/PersonModal';
 import { Person } from '../models/types';
 import { useThemeColors } from '../theme/ThemeProvider';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface ContactsScreenProps {
   onBack?: () => void;
@@ -12,6 +13,7 @@ interface ContactsScreenProps {
 
 export default function ContactsScreen({ onBack }: ContactsScreenProps) {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
 
   const [contacts, setContacts] = useState<Person[]>([]);
   const [personModalVisible, setPersonModalVisible] = useState(false);
@@ -87,7 +89,7 @@ export default function ContactsScreen({ onBack }: ContactsScreenProps) {
   if (loading) {
     return (
       <>
-        <Appbar.Header>
+        <Appbar.Header statusBarHeight={insets.top}>
           <Appbar.BackAction onPress={onBack} />
           <Appbar.Content title="Manage Contacts" />
         </Appbar.Header>
@@ -97,6 +99,7 @@ export default function ContactsScreen({ onBack }: ContactsScreenProps) {
             justifyContent: 'center',
             alignItems: 'center',
             backgroundColor: colors.background,
+            paddingBottom: insets.bottom,
           }}
         >
           <Text style={{ color: colors.textSecondary }}>Loading contacts...</Text>
@@ -107,13 +110,13 @@ export default function ContactsScreen({ onBack }: ContactsScreenProps) {
 
   return (
     <>
-      <Appbar.Header>
+      <Appbar.Header statusBarHeight={insets.top}>
         <Appbar.BackAction onPress={onBack} />
         <Appbar.Content title="Manage Contacts" />
       </Appbar.Header>
 
       <ScrollView
-        contentContainerStyle={{ padding: 16, gap: 12 }}
+        contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 16 + insets.bottom }}
         style={{ backgroundColor: colors.background }}
       >
         {contacts.map((person) => (
@@ -204,7 +207,7 @@ export default function ContactsScreen({ onBack }: ContactsScreenProps) {
 
       <FAB
         icon="plus"
-        style={{ position: 'absolute', margin: 16, right: 0, bottom: 0 }}
+        style={{ position: 'absolute', right: 16, bottom: insets.bottom + 16 }}
         onPress={handleAddPerson}
       />
 
