@@ -45,11 +45,13 @@ export const useSecurityStore = create<SecurityState>()(
       }),
       migrate: async (persisted, fromVersion) => {
         const p = (persisted as Partial<SecurityState>) ?? {};
-        return {
+        // Return a partial slice only for persisted keys; runtime fields are omitted
+        const next: Partial<SecurityState> = {
           biometricsEnabled: p.biometricsEnabled ?? false,
           sessionMs: p.sessionMs ?? 5 * 60 * 1000,
           lastAuthAt: p.lastAuthAt ?? null,
-        } as unknown as SecurityState;
+        };
+        return next;
       },
       onRehydrateStorage: () => () => {
         // mark store ready only after rehydration completes
