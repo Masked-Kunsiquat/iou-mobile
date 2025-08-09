@@ -1,12 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { ScrollView, View, TouchableOpacity } from 'react-native';
-import { Card, Text, Provider as PaperProvider } from 'react-native-paper';
+import { ScrollView, View } from 'react-native';
+import {
+  Card,
+  Text,
+  Divider,
+  TouchableRipple,
+} from 'react-native-paper';
 import { useLedgerStore } from '../store/ledgerStore';
 import PersonModal from '../components/PersonModal';
 import DebtModal from '../components/DebtModal';
 import FABMenu from '../components/FABMenu';
-import { upsertPerson, getPersonById, createDebt } from '../db/repo';
+import { upsertPerson, createDebt } from '../db/repo';
 import { Person, DebtType } from '../models/types';
+import { useThemeColors } from '../theme/ThemeProvider';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ChartCard from '../components/ChartCard';
 
 interface DashboardProps {
   onNavigateToIOUs?: () => void;
@@ -14,16 +22,27 @@ interface DashboardProps {
   onNavigateToContacts?: () => void;
 }
 
-export default function Dashboard({ onNavigateToIOUs, onNavigateToUOMs, onNavigateToContacts }: DashboardProps) {
+export default function Dashboard({
+  onNavigateToIOUs,
+  onNavigateToUOMs,
+  onNavigateToContacts,
+}: DashboardProps) {
   const { dashboard, refresh } = useLedgerStore();
+  const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
+
   const [personModalVisible, setPersonModalVisible] = useState(false);
   const [debtModalVisible, setDebtModalVisible] = useState(false);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [debtType, setDebtType] = useState<DebtType>('IOU');
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    refresh();
+  }, []);
 
-  const handleSavePerson = async (person: Omit<Person, 'id'> & Partial<Pick<Person, 'id'>>) => {
+  const handleSavePerson = async (
+    person: Omit<Person, 'id'> & Partial<Pick<Person, 'id'>>
+  ) => {
     await upsertPerson(person);
     await refresh();
   };
@@ -53,84 +72,109 @@ export default function Dashboard({ onNavigateToIOUs, onNavigateToUOMs, onNaviga
     setPersonModalVisible(true);
   };
 
+  const netColor =
+    dashboard && parseFloat(dashboard.net) >= 0 ? colors.uomColor : colors.iouColor;
+
   return (
-    <PaperProvider>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
-        {/* Total Cards - IOU, Net, UOM */}
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <TouchableOpacity style={{ flex: 1 }} onPress={onNavigateToIOUs}>
-            <Card>
-              <Card.Content>
-                <Text variant="titleSmall">I Owe (IOU)</Text>
-                <Text variant="headlineSmall" style={{ color: '#d32f2f' }}>
-                  ${dashboard?.totalIOU ?? '0.00'}
-                </Text>
-              </Card.Content>
-            </Card>
-          </TouchableOpacity>
-          
-          <Card style={{ flex: 1 }}>
-            <Card.Content>
-              <Text variant="titleSmall">Net Balance</Text>
-              <Text 
-                variant="headlineSmall" 
-                style={{ 
-                  color: dashboard && parseFloat(dashboard.net) >= 0 ? '#2e7d32' : '#d32f2f' 
-                }}
-              >
-                ${dashboard?.net ?? '0.00'}
+    <ScrollView
+      contentContainerStyle={{
+        paddingTop: insets.top + 8,           // safe area + breathing room
+        paddingBottom: 16 + insets.bottom,    // keep content/FAB off bottom edges
+        paddingHorizontal: 16,
+        gap: 12,
+      }}
+      style={{ backgroundColor: colors.background }}
+    >
+      {/* Totals card with 3 rows */}
+      <Card style={{ backgroundColor: colors.surface }}>
+        <Card.Content style={{ paddingVertical: 0 }}>
+          {/* IOU row */}
+          <TouchableRipple onPress={onNavigateToIOUs}>
+            <View
+              style={{
+                paddingVertical: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Text variant="titleMedium" style={{ color: colors.textPrimary }}>
+                I Owe (IOU)
               </Text>
-            </Card.Content>
-          </Card>
-          
-          <TouchableOpacity style={{ flex: 1 }} onPress={onNavigateToUOMs}>
-            <Card>
-              <Card.Content>
-                <Text variant="titleSmall">Owed to Me (UOM)</Text>
-                <Text variant="headlineSmall" style={{ color: '#2e7d32' }}>
-                  ${dashboard?.totalUOM ?? '0.00'}
-                </Text>
-              </Card.Content>
-            </Card>
-          </TouchableOpacity>
-        </View>
+              <Text variant="titleLarge" style={{ color: colors.iouColor }}>
+                ${dashboard?.totalIOU ?? '0.00'}
+              </Text>
+            </View>
+          </TouchableRipple>
 
-        {/* Contacts Navigation */}
-        <TouchableOpacity onPress={onNavigateToContacts}>
-          <Card style={{ height: 60 }}>
-            <Card.Content style={{ 
-              flexDirection: 'row', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              height: '100%'
-            }}>
-              <Text variant="titleMedium">Manage Contacts</Text>
-            </Card.Content>
-          </Card>
-        </TouchableOpacity>
+          <Divider />
 
-        {/* Placeholder for future graph */}
-        <Card style={{ height: 200 }}>
-          <Card.Content style={{ 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            height: '100%'
-          }}>
-            <Text variant="titleMedium" style={{ color: '#666' }}>
-              📈 IOU vs UOM Graph
+          {/* Net row */}
+          <View
+            style={{
+              paddingVertical: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <Text variant="titleMedium" style={{ color: colors.textPrimary }}>
+              Net Balance
             </Text>
-            <Text variant="bodyMedium" style={{ color: '#999', marginTop: 8 }}>
-              Coming soon
+            <Text variant="titleLarge" style={{ color: netColor }}>
+              ${dashboard?.net ?? '0.00'}
+            </Text>
+          </View>
+
+          <Divider />
+
+          {/* UOM row */}
+          <TouchableRipple onPress={onNavigateToUOMs}>
+            <View
+              style={{
+                paddingVertical: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Text variant="titleMedium" style={{ color: colors.textPrimary }}>
+                Owed to Me (UOM)
+              </Text>
+              <Text variant="titleLarge" style={{ color: colors.uomColor }}>
+                ${dashboard?.totalUOM ?? '0.00'}
+              </Text>
+            </View>
+          </TouchableRipple>
+        </Card.Content>
+      </Card>
+
+      {/* Stacked totals bar (no external chart deps) */}
+      <ChartCard
+        title=''
+        totalIOU={dashboard?.totalIOU ?? '0.00'}
+        totalUOM={dashboard?.totalUOM ?? '0.00'}
+      />
+
+      {/* Contacts Navigation */}
+      <TouchableRipple onPress={onNavigateToContacts} borderless={false}>
+        <Card style={{ backgroundColor: colors.surface }}>
+          <Card.Content
+            style={{
+              height: 60,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text variant="titleMedium" style={{ color: colors.textPrimary }}>
+              Manage Contacts
             </Text>
           </Card.Content>
         </Card>
-      </ScrollView>
+      </TouchableRipple>
 
-      <FABMenu
-        onAddIOU={handleAddIOU}
-        onAddUOM={handleAddUOM}
-        onAddContact={handleAddContact}
-      />
+      <FABMenu onAddIOU={handleAddIOU} onAddUOM={handleAddUOM} onAddContact={handleAddContact} />
 
       <PersonModal
         visible={personModalVisible}
@@ -145,6 +189,6 @@ export default function Dashboard({ onNavigateToIOUs, onNavigateToUOMs, onNaviga
         onSave={handleSaveDebt}
         defaultType={debtType}
       />
-    </PaperProvider>
+    </ScrollView>
   );
 }

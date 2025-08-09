@@ -3,6 +3,7 @@ import { Modal, Portal, TextInput, Button, Text, IconButton } from 'react-native
 import { View, Alert } from 'react-native';
 import * as Contacts from 'expo-contacts';
 import { Person } from '../models/types';
+import { useThemeColors } from '../theme/ThemeProvider';
 
 interface PersonModalProps {
   visible: boolean;
@@ -12,6 +13,8 @@ interface PersonModalProps {
 }
 
 export default function PersonModal({ visible, onDismiss, onSave, editPerson }: PersonModalProps) {
+  const colors = useThemeColors();
+
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
   const [notes, setNotes] = useState('');
@@ -27,28 +30,25 @@ export default function PersonModal({ visible, onDismiss, onSave, editPerson }: 
     }
   }, [visible, editPerson]);
 
-const handleSave = async () => {
-  if (!name.trim()) {
-    setError('Name is required');
-    return;
-  }
-  setError('');
-  try {
-    await onSave({
-      id: editPerson?.id,
-      name: name.trim(),
-      contact: contact.trim() || undefined,
-      notes: notes.trim() || undefined,
-    });
-    onDismiss(); // Only dismiss if save succeeded
-  } catch (err: any) {
-    console.error('Failed to save person:', err);
-    setError(
-      err?.message || 'Failed to save person. Please try again.'
-    );
-  }
-};
-
+  const handleSave = async () => {
+    if (!name.trim()) {
+      setError('Name is required');
+      return;
+    }
+    setError('');
+    try {
+      await onSave({
+        id: editPerson?.id,
+        name: name.trim(),
+        contact: contact.trim() || undefined,
+        notes: notes.trim() || undefined,
+      });
+      onDismiss(); // Only dismiss if save succeeded
+    } catch (err: any) {
+      console.error('Failed to save person:', err);
+      setError(err?.message || 'Failed to save person. Please try again.');
+    }
+  };
 
   const handleCancel = () => {
     setError('');
@@ -64,11 +64,8 @@ const handleSave = async () => {
       }
 
       const selectedContact = await Contacts.presentContactPickerAsync();
-      
-      if (!selectedContact) {
-        return; // User cancelled or no contact selected
-      }
-      
+      if (!selectedContact) return;
+
       // Use contact name if current name is empty
       if (!name.trim() && selectedContact.name) {
         setName(selectedContact.name);
@@ -82,9 +79,7 @@ const handleSave = async () => {
         contactInfo = selectedContact.emails[0].email || '';
       }
 
-      if (contactInfo) {
-        setContact(contactInfo);
-      }
+      if (contactInfo) setContact(contactInfo);
     } catch (error) {
       Alert.alert('Error', 'Failed to import contact. Please try again.');
     }
@@ -92,14 +87,18 @@ const handleSave = async () => {
 
   return (
     <Portal>
-      <Modal visible={visible} onDismiss={handleCancel} contentContainerStyle={{
-        backgroundColor: 'white',
-        padding: 20,
-        margin: 20,
-        borderRadius: 8,
-      }}>
+      <Modal
+        visible={visible}
+        onDismiss={handleCancel}
+        contentContainerStyle={{
+          backgroundColor: colors.surface,
+          padding: 20,
+          margin: 20,
+          borderRadius: 8,
+        }}
+      >
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-          <Text variant="headlineSmall" style={{ flex: 1 }}>
+          <Text variant="headlineSmall" style={{ flex: 1, color: colors.textPrimary }}>
             {editPerson ? 'Edit Person' : 'Add Person'}
           </Text>
           <IconButton
@@ -109,24 +108,32 @@ const handleSave = async () => {
             size={20}
           />
         </View>
-        
+
         <TextInput
           label="Name *"
           value={name}
           onChangeText={setName}
           style={{ marginBottom: 12 }}
           error={!!error}
+          mode="outlined"
+          outlineColor={colors.outline}
+          activeOutlineColor={colors.primary}
+          placeholderTextColor={colors.textSecondary}
         />
-        
+
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
           <TextInput
             label="Contact (phone/email)"
             value={contact}
             onChangeText={setContact}
             style={{ flex: 1 }}
+            mode="outlined"
+            outlineColor={colors.outline}
+            activeOutlineColor={colors.primary}
+            placeholderTextColor={colors.textSecondary}
           />
         </View>
-        
+
         <TextInput
           label="Notes"
           value={notes}
@@ -134,13 +141,21 @@ const handleSave = async () => {
           multiline
           numberOfLines={3}
           style={{ marginBottom: 12 }}
+          mode="outlined"
+          outlineColor={colors.outline}
+          activeOutlineColor={colors.primary}
+          placeholderTextColor={colors.textSecondary}
         />
-        
-        {error ? <Text style={{ color: 'red', marginBottom: 12 }}>{error}</Text> : null}
-        
+
+        {error ? <Text style={{ color: colors.error, marginBottom: 12 }}>{error}</Text> : null}
+
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
-          <Button mode="outlined" onPress={handleCancel}>Cancel</Button>
-          <Button mode="contained" onPress={handleSave}>Save</Button>
+          <Button mode="outlined" onPress={handleCancel}>
+            Cancel
+          </Button>
+          <Button mode="contained" onPress={handleSave}>
+            Save
+          </Button>
         </View>
       </Modal>
     </Portal>
