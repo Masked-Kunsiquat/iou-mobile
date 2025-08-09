@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, View, TouchableOpacity } from 'react-native';
-import { Card, Text, Provider as PaperProvider, FAB } from 'react-native-paper';
+import { Card, Text, Provider as PaperProvider } from 'react-native-paper';
 import { useLedgerStore } from '../store/ledgerStore';
 import PersonModal from '../components/PersonModal';
-import { upsertPerson, getPersonById } from '../db/repo';
-import { Person } from '../models/types';
+import DebtModal from '../components/DebtModal';
+import FABMenu from '../components/FABMenu';
+import { upsertPerson, getPersonById, createDebt } from '../db/repo';
+import { Person, DebtType } from '../models/types';
 
 interface DashboardProps {
   onNavigateToIOUs?: () => void;
@@ -15,7 +17,9 @@ interface DashboardProps {
 export default function Dashboard({ onNavigateToIOUs, onNavigateToUOMs, onNavigateToContacts }: DashboardProps) {
   const { dashboard, refresh } = useLedgerStore();
   const [personModalVisible, setPersonModalVisible] = useState(false);
+  const [debtModalVisible, setDebtModalVisible] = useState(false);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
+  const [debtType, setDebtType] = useState<DebtType>('IOU');
 
   useEffect(() => { refresh(); }, []);
 
@@ -24,7 +28,27 @@ export default function Dashboard({ onNavigateToIOUs, onNavigateToUOMs, onNaviga
     await refresh();
   };
 
-  const handleAddPerson = () => {
+  const handleSaveDebt = async (debt: {
+    type: DebtType;
+    personId: string;
+    description: string;
+    amountOriginal: string;
+  }) => {
+    await createDebt(debt);
+    await refresh();
+  };
+
+  const handleAddIOU = () => {
+    setDebtType('IOU');
+    setDebtModalVisible(true);
+  };
+
+  const handleAddUOM = () => {
+    setDebtType('UOM');
+    setDebtModalVisible(true);
+  };
+
+  const handleAddContact = () => {
     setEditingPerson(null);
     setPersonModalVisible(true);
   };
@@ -102,10 +126,10 @@ export default function Dashboard({ onNavigateToIOUs, onNavigateToUOMs, onNaviga
         </Card>
       </ScrollView>
 
-      <FAB
-        icon="plus"
-        style={{ position: 'absolute', margin: 16, right: 0, bottom: 0 }}
-        onPress={handleAddPerson}
+      <FABMenu
+        onAddIOU={handleAddIOU}
+        onAddUOM={handleAddUOM}
+        onAddContact={handleAddContact}
       />
 
       <PersonModal
@@ -113,6 +137,13 @@ export default function Dashboard({ onNavigateToIOUs, onNavigateToUOMs, onNaviga
         onDismiss={() => setPersonModalVisible(false)}
         onSave={handleSavePerson}
         editPerson={editingPerson}
+      />
+
+      <DebtModal
+        visible={debtModalVisible}
+        onDismiss={() => setDebtModalVisible(false)}
+        onSave={handleSaveDebt}
+        defaultType={debtType}
       />
     </PaperProvider>
   );
