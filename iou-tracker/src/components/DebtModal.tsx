@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Portal, TextInput, Button, Text, RadioButton } from 'react-native-paper';
+import { Modal, Portal, TextInput, Button, Text, RadioButton, Chip } from 'react-native-paper';
 import { View, ScrollView } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useLedgerStore } from '../store/ledgerStore';
@@ -14,30 +14,42 @@ interface DebtModalProps {
     personId: string;
     description: string;
     amountOriginal: string;
-  }) => void;
+  }) => Promise<void> | void;
   defaultType?: DebtType;
+
+  /** NEW: lock fields when invoked from a person card or typed screen */
+  fixedPersonId?: string;     // when set, person is locked
+  fixedType?: DebtType;       // when set, type is locked (e.g., IOU on IOU screen)
 }
 
-export default function DebtModal({ visible, onDismiss, onSave, defaultType }: DebtModalProps) {
+export default function DebtModal({
+  visible,
+  onDismiss,
+  onSave,
+  defaultType,
+  fixedPersonId,
+  fixedType,
+}: DebtModalProps) {
   const { people } = useLedgerStore();
   const colors = useThemeColors();
-  const [type, setType] = useState<DebtType>(defaultType || 'IOU');
-  const [personId, setPersonId] = useState('');
+
+  const [type, setType] = useState<DebtType>(fixedType || defaultType || 'IOU');
+  const [personId, setPersonId] = useState<string>(fixedPersonId || (people[0]?.id ?? ''));
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (visible) {
-      setType(defaultType || 'IOU');
-      setPersonId(people.length > 0 ? people[0].id : '');
+      setType(fixedType || defaultType || 'IOU');
+      setPersonId(fixedPersonId || (people[0]?.id ?? ''));
       setDescription('');
       setAmount('');
       setError('');
     }
-  }, [visible, defaultType, people]);
+  }, [visible, defaultType, fixedPersonId, fixedType, people]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!personId) {
       setError('Please select a person');
       return;
@@ -52,7 +64,7 @@ export default function DebtModal({ visible, onDismiss, onSave, defaultType }: D
     }
 
     setError('');
-    onSave({
+    await onSave({
       type,
       personId,
       description: description.trim(),
@@ -69,80 +81,121 @@ export default function DebtModal({ visible, onDismiss, onSave, defaultType }: D
   const formatAmount = (text: string) => {
     const cleaned = text.replace(/[^0-9.]/g, '');
     const parts = cleaned.split('.');
-    if (parts.length > 2) {
-      return parts[0] + '.' + parts.slice(1).join('');
-    }
-    if (parts[1] && parts[1].length > 2) {
-      return parts[0] + '.' + parts[1].substring(0, 2);
-    }
+    if (parts.length > 2) return parts[0] + '.' + parts.slice(1).join('');
+    if (parts[1] && parts[1].length > 2) return parts[0] + '.' + parts[1].substring(0, 2);
     return cleaned;
   };
 
+  const lockedPersonName =
+    fixedPersonId ? (people.find((p) => p.id === fixedPersonId)?.name ?? 'Selected person') : '';
+
   return (
     <Portal>
-      <Modal visible={visible} onDismiss={handleCancel} contentContainerStyle={{
-        backgroundColor: colors.surface,
-        padding: 20,
-        margin: 20,
-        borderRadius: 8,
-        maxHeight: '80%',
-      }}>
+      <Modal
+        visible={visible}
+        onDismiss={handleCancel}
+        contentContainerStyle={{
+          backgroundColor: colors.surface,
+          padding: 20,
+          margin: 20,
+          borderRadius: 8,
+          maxHeight: '80%',
+        }}
+      >
         <ScrollView>
           <Text variant="headlineSmall" style={{ marginBottom: 16, color: colors.textPrimary }}>
-            Add New {type}
+            Add New {fixedType || type}
           </Text>
 
-          <Text variant="titleMedium" style={{ marginBottom: 8, color: colors.textPrimary }}>Type</Text>
-          <RadioButton.Group onValueChange={value => setType(value as DebtType)} value={type}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-              <RadioButton value="IOU" />
-              <Text onPress={() => setType('IOU')} style={{ color: colors.textPrimary }}>
-                IOU - I owe them money
-              </Text>
-            </View>
+          {/* Type */}
+          <Text variant="titleMedium" style={{ marginBottom: 8, color: colors.textPrimary }}>
+            Type
+          </Text>
+          {fixedType ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-              <RadioButton value="UOM" />
-              <Text onPress={() => setType('UOM')} style={{ color: colors.textPrimary }}>
-                UOM - They owe me money
-              </Text>
+              <Chip mode="flat" selected style={{ backgroundColor: colors.surfaceVariant }}>
+                {fixedType === 'IOU' ? 'IOU - I owe them' : 'UOM - They owe me'}
+              </Chip>
             </View>
-          </RadioButton.Group>
+          ) : (
+            <RadioButton.Group onValueChange={(v) => setType(v as DebtType)} value={type}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <RadioButton value="IOU" />
+                <Text onPress={() => setType('IOU')} style={{ color: colors.textPrimary }}>
+                  IOU - I owe them money
+                </Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                <RadioButton value="UOM" />
+                <Text onPress={() => setType('UOM')} style={{ color: colors.textPrimary }}>
+                  UOM - They owe me money
+                </Text>
+              </View>
+            </RadioButton.Group>
+          )}
 
-          <Text variant="titleMedium" style={{ marginBottom: 8, color: colors.textPrimary }}>Person</Text>
-          <View style={{ 
-            borderWidth: 1, 
-            borderColor: colors.outline, 
-            borderRadius: 4, 
-            marginBottom: 16,
-            backgroundColor: colors.surfaceVariant
-          }}>
-            <Picker
-              selectedValue={personId}
-              onValueChange={setPersonId}
-              style={{ height: 50, color: colors.textPrimary }}
-              dropdownIconColor={colors.textPrimary}
+          {/* Person */}
+          <Text variant="titleMedium" style={{ marginBottom: 8, color: colors.textPrimary }}>
+            Person
+          </Text>
+          {fixedPersonId ? (
+            <View
+              style={{
+                borderWidth: 1,
+                borderColor: colors.outline,
+                borderRadius: 4,
+                marginBottom: 16,
+                paddingVertical: 14,
+                paddingHorizontal: 12,
+                backgroundColor: colors.surfaceVariant,
+              }}
             >
-              {people.map(person => (
-                <Picker.Item 
-                  key={person.id} 
-                  label={person.name} 
-                  value={person.id}
-                  color={colors.textPrimary}
-                />
-              ))}
-            </Picker>
-          </View>
+              <Text style={{ color: colors.textPrimary }}>{lockedPersonName}</Text>
+            </View>
+          ) : (
+            <View
+              style={{
+                borderWidth: 1,
+                borderColor: colors.outline,
+                borderRadius: 4,
+                marginBottom: 16,
+                backgroundColor: colors.surfaceVariant,
+              }}
+            >
+              <Picker
+                selectedValue={personId}
+                onValueChange={setPersonId}
+                style={{ height: 50, color: colors.textPrimary }}
+                dropdownIconColor={colors.textPrimary}
+              >
+                {people.map((person) => (
+                  <Picker.Item
+                    key={person.id}
+                    label={person.name}
+                    value={person.id}
+                    color={colors.textPrimary}
+                  />
+                ))}
+              </Picker>
+            </View>
+          )}
 
+          {/* Amount */}
           <TextInput
             label="Amount *"
             value={amount}
-            onChangeText={(text) => setAmount(formatAmount(text))}
+            onChangeText={(t) => setAmount(formatAmount(t))}
             keyboardType="decimal-pad"
             style={{ marginBottom: 12 }}
             left={<TextInput.Affix text="$" />}
-            error={!!error && error.includes('amount')}
+            error={!!error && error.toLowerCase().includes('amount')}
+            mode="outlined"
+            outlineColor={colors.outline}
+            activeOutlineColor={colors.primary}
+            placeholderTextColor={colors.textSecondary}
           />
 
+          {/* Description */}
           <TextInput
             label="Description (optional)"
             value={description}
@@ -151,13 +204,21 @@ export default function DebtModal({ visible, onDismiss, onSave, defaultType }: D
             numberOfLines={3}
             style={{ marginBottom: 12 }}
             placeholder="What is this for?"
+            mode="outlined"
+            outlineColor={colors.outline}
+            activeOutlineColor={colors.primary}
+            placeholderTextColor={colors.textSecondary}
           />
 
           {error ? <Text style={{ color: colors.error, marginBottom: 12 }}>{error}</Text> : null}
 
           <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
-            <Button mode="outlined" onPress={handleCancel}>Cancel</Button>
-            <Button mode="contained" onPress={handleSave}>Save</Button>
+            <Button mode="outlined" onPress={handleCancel}>
+              Cancel
+            </Button>
+            <Button mode="contained" onPress={handleSave}>
+              Save
+            </Button>
           </View>
         </ScrollView>
       </Modal>

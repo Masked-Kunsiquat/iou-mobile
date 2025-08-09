@@ -9,17 +9,19 @@ import {
   deleteDebt,
   markDebtSettled,
   addPayment,
+  createDebt, // NEW
 } from '../db/repo';
 import ExpandablePersonCard from '../components/ExpandablePersonCard';
 import DebtDetailModal from '../components/DebtDetailModal';
 import EditDebtModal from '../components/EditDebtModal';
 import PaymentModal from '../components/PaymentModal';
-import { Debt } from '../models/types';
+import DebtModal from '../components/DebtModal'; // NEW
+import { Debt, DebtType } from '../models/types';
 import { useThemeColors } from '../theme/ThemeProvider';
 
 interface IOUScreenProps {
   onBack?: () => void;
-  onAddIOUForPerson?: (personId: string) => void;
+  onAddIOUForPerson?: (personId: string) => void; // can keep for navigation cases
 }
 
 export default function IOUScreen({ onBack, onAddIOUForPerson }: IOUScreenProps) {
@@ -30,12 +32,19 @@ export default function IOUScreen({ onBack, onAddIOUForPerson }: IOUScreenProps)
     Array<{ person: any; debts: (Debt & { balance: string })[] }>
   >([]);
   const [loading, setLoading] = useState(true);
+
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
+
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
+
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [paymentDebt, setPaymentDebt] = useState<Debt | null>(null);
+
+  // NEW: state for creating a new IOU for a specific person
+  const [newDebtModalVisible, setNewDebtModalVisible] = useState(false);
+  const [newDebtPersonId, setNewDebtPersonId] = useState<string | null>(null);
 
   const loadIOUData = async () => {
     try {
@@ -147,6 +156,31 @@ export default function IOUScreen({ onBack, onAddIOUForPerson }: IOUScreenProps)
     }
   };
 
+  // NEW: open modal for adding an IOU for a specific person
+  const handleAddDebtForPerson = (personId: string) => {
+    setNewDebtPersonId(personId);
+    setNewDebtModalVisible(true);
+  };
+
+  // NEW: save new debt (IOU) from modal
+  const handleSaveNewDebt = async (debt: {
+    type: DebtType;
+    personId: string;
+    description: string;
+    amountOriginal: string;
+  }) => {
+    try {
+      await createDebt(debt);
+      await refresh();
+      await loadIOUData();
+      setNewDebtModalVisible(false);
+      setNewDebtPersonId(null);
+    } catch (error) {
+      console.error('Failed to create debt:', error);
+      Alert.alert('Error', 'Failed to create debt');
+    }
+  };
+
   if (loading) {
     return (
       <>
@@ -187,7 +221,10 @@ export default function IOUScreen({ onBack, onAddIOUForPerson }: IOUScreenProps)
             total={person.iouTotal}
             debts={debts}
             type="IOU"
-            onAddDebt={() => onAddIOUForPerson?.(person.id)}
+            onAddDebt={() =>
+              // prefer local handler; fallback to prop if provided
+              handleAddDebtForPerson(person.id) ?? onAddIOUForPerson?.(person.id)
+            }
             onDebtPress={handleDebtPress}
           />
         ))}
@@ -208,6 +245,7 @@ export default function IOUScreen({ onBack, onAddIOUForPerson }: IOUScreenProps)
         )}
       </ScrollView>
 
+      {/* Existing modals */}
       <DebtDetailModal
         visible={detailModalVisible}
         onDismiss={() => setDetailModalVisible(false)}
@@ -230,6 +268,19 @@ export default function IOUScreen({ onBack, onAddIOUForPerson }: IOUScreenProps)
         onDismiss={() => setPaymentModalVisible(false)}
         onSave={handleSavePayment}
         debt={paymentDebt}
+      />
+
+      {/* NEW: Add IOU for a specific person (person + type locked) */}
+      <DebtModal
+        visible={newDebtModalVisible}
+        onDismiss={() => {
+          setNewDebtModalVisible(false);
+          setNewDebtPersonId(null);
+        }}
+        onSave={handleSaveNewDebt}
+        defaultType="IOU"
+        fixedType="IOU"
+        fixedPersonId={newDebtPersonId || undefined}
       />
     </>
   );
