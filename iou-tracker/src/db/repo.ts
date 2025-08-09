@@ -89,10 +89,24 @@ export async function addPayment(p: Omit<Payment,'id'>) {
 
 export async function getDebtBalance(debtId: string) {
   const db = await openDB();
-  const base = await db.getFirstAsync<{amountOriginal: string}>('SELECT amountOriginal FROM debts WHERE id=?', [debtId]);
-  const payments = await db.getAllAsync<{amount: string}>('SELECT amount FROM payments WHERE debtId=?', [debtId]);
+
+  const base = await db.getFirstAsync<{ amountOriginal: string }>(
+    'SELECT amountOriginal FROM debts WHERE id=?',
+    [debtId]
+  );
+
+  if (!base) {
+    // Fail fast: caller passed a missing/invalid debtId
+    throw new Error(`getDebtBalance: debt not found (id=${debtId})`);
+  }
+
+  const payments = await db.getAllAsync<{ amount: string }>(
+    'SELECT amount FROM payments WHERE debtId=?',
+    [debtId]
+  );
+
   const totalPaid = payments.reduce((sum, p) => add(sum, p.amount), '0');
-  const balance = sub(base?.amountOriginal ?? '0', totalPaid);
+  const balance = sub(base.amountOriginal, totalPaid);
   return balance;
 }
 
