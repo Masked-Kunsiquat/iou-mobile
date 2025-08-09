@@ -3,11 +3,18 @@ import { openDB } from './db';
 import { add, sub, lte, toCentsStr, d } from '../utils/money';
 import { Debt, Payment, Person } from '../models/types';
 
-export async function upsertPerson(p: Omit<Person,'id'> & Partial<Pick<Person,'id'>>) {
+export async function upsertPerson(
+  p: Omit<Person, 'id'> & Partial<Pick<Person, 'id'>>
+) {
   const db = await openDB();
   const id = p.id ?? Crypto.randomUUID();
   await db.runAsync(
-    'INSERT OR REPLACE INTO people(id,name,contact,notes) VALUES(?,?,?,?)',
+    `INSERT INTO people (id, name, contact, notes)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       name = excluded.name,
+       contact = excluded.contact,
+       notes = excluded.notes`,
     [id, p.name, p.contact ?? null, p.notes ?? null]
   );
   return id;
