@@ -3,7 +3,6 @@ import { ScrollView, View } from 'react-native';
 import {
   Card,
   Text,
-  useTheme,
   Divider,
   TouchableRipple,
 } from 'react-native-paper';
@@ -15,6 +14,7 @@ import { upsertPerson, createDebt } from '../db/repo';
 import { Person, DebtType } from '../models/types';
 import { useThemeColors } from '../theme/ThemeProvider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ChartCard from '../components/ChartCard';
 
 interface DashboardProps {
   onNavigateToIOUs?: () => void;
@@ -29,7 +29,6 @@ export default function Dashboard({
 }: DashboardProps) {
   const { dashboard, refresh } = useLedgerStore();
   const colors = useThemeColors();
-  const theme = useTheme();
   const insets = useSafeAreaInsets();
 
   const [personModalVisible, setPersonModalVisible] = useState(false);
@@ -79,8 +78,8 @@ export default function Dashboard({
   return (
     <ScrollView
       contentContainerStyle={{
-        paddingTop: insets.top + 8,      // safe area + a little breathing room
-        paddingBottom: 16 + insets.bottom, // keep content/FAB off bottom edges
+        paddingTop: insets.top + 8,           // safe area + breathing room
+        paddingBottom: 16 + insets.bottom,    // keep content/FAB off bottom edges
         paddingHorizontal: 16,
         gap: 12,
       }}
@@ -150,6 +149,13 @@ export default function Dashboard({
         </Card.Content>
       </Card>
 
+      {/* Stacked totals bar (no external chart deps) */}
+      <ChartCard
+        title=''
+        totalIOU={dashboard?.totalIOU ?? '0.00'}
+        totalUOM={dashboard?.totalUOM ?? '0.00'}
+      />
+
       {/* Contacts Navigation */}
       <TouchableRipple onPress={onNavigateToContacts} borderless={false}>
         <Card style={{ backgroundColor: colors.surface }}>
@@ -167,24 +173,6 @@ export default function Dashboard({
           </Card.Content>
         </Card>
       </TouchableRipple>
-
-      {/* Placeholder for future graph */}
-      <Card style={{ height: 200, backgroundColor: colors.surface }}>
-        <Card.Content
-          style={{
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-          }}
-        >
-          <Text variant="titleMedium" style={{ color: colors.textSecondary }}>
-            📈 IOU vs UOM Graph
-          </Text>
-          <Text variant="bodyMedium" style={{ color: colors.textSecondary, marginTop: 8 }}>
-            Coming soon
-          </Text>
-        </Card.Content>
-      </Card>
 
       <FABMenu onAddIOU={handleAddIOU} onAddUOM={handleAddUOM} onAddContact={handleAddContact} />
 
