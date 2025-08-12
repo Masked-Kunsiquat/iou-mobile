@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "iou-tracker",
-    "slug": "iou-tracker",
+    "slug": "iou",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -28,8 +28,6 @@
       "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.READ_CONTACTS",
-        "android.permission.WRITE_CONTACTS",
-        "android.permission.READ_CONTACTS",
         "android.permission.WRITE_CONTACTS"
       ],
       "package": "com.anonymous.ioutracker"
@@ -40,6 +38,12 @@
     "plugins": [
       "expo-sqlite",
       "expo-contacts"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "4ad33768-faa1-4322-b1a7-4913078941ce"
+      }
+    },
+    "owner": "masked-kunsiquat"
   }
 }
