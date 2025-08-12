@@ -136,7 +136,7 @@ export default function Dashboard({
                 </Text>
               </View>
 
-              <Divider orientation="vertical" style={{ height: 40 }} />
+              <View style={{ height: 40, width: 1, backgroundColor: colors.outline }} />
 
               <View style={{ alignItems: 'center' }}>
                 <Text variant="labelMedium" style={{ color: colors.textSecondary }}>
@@ -150,7 +150,7 @@ export default function Dashboard({
                 </Text>
               </View>
 
-              <Divider orientation="vertical" style={{ height: 40 }} />
+              <View style={{ height: 40, width: 1, backgroundColor: colors.outline }} />
 
               <View style={{ alignItems: 'center' }}>
                 <Text variant="labelMedium" style={{ color: colors.textSecondary }}>
@@ -246,7 +246,7 @@ export default function Dashboard({
           setEditingPerson(null);
         }}
         onSave={handleSavePerson}
-        person={editingPerson}
+        editPerson={editingPerson}
       />
 
       <DebtModal
