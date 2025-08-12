@@ -85,38 +85,56 @@ export async function getPersonById(id: string) {
   return await db.getFirstAsync<Person>('SELECT * FROM people WHERE id=?', [id]);
 }
 
+// Replace listPeopleWithTotals function in src/db/repo.ts
+
 export async function listPeopleWithTotals() {
   const db = await openDB();
-  // Get people and their debt totals as strings to avoid float precision
-  const rows = await db.getAllAsync<any>(`
-    SELECT p.id, p.name,
-      IFNULL((
-        SELECT GROUP_CONCAT(d.amountOriginal)
-        FROM debts d WHERE d.personId=p.id AND d.type='IOU' AND d.status='open'
-      ),'') AS iouAmounts,
-      IFNULL((
-        SELECT GROUP_CONCAT(d.amountOriginal)
-        FROM debts d WHERE d.personId=p.id AND d.type='UOM' AND d.status='open'
-      ),'') AS uomAmounts
-    FROM people p
-    ORDER BY p.name COLLATE NOCASE;
+  
+  // Get all people first
+  const people = await db.getAllAsync<{ id: string; name: string }>(`
+    SELECT id, name FROM people ORDER BY name COLLATE NOCASE
   `);
   
-  return rows.map(r => {
-    const iouTotal = r.iouAmounts ? 
-      r.iouAmounts.split(',').reduce((sum: string, amt: string) => add(sum, amt), '0') : '0.00';
-    const uomTotal = r.uomAmounts ? 
-      r.uomAmounts.split(',').reduce((sum: string, amt: string) => add(sum, amt), '0') : '0.00';
-    const net = sub(uomTotal, iouTotal);
-    
-    return {
-      id: r.id,
-      name: r.name,
-      iouTotal: toCentsStr(iouTotal),
-      uomTotal: toCentsStr(uomTotal),
-      net: toCentsStr(net),
-    };
-  });
+  // Calculate totals for each person by getting actual balances
+  const peopleWithTotals = await Promise.all(
+    people.map(async (person) => {
+      // Get all open debts for this person
+      const iouDebts = await db.getAllAsync<{ id: string; amountOriginal: string }>(`
+        SELECT id, amountOriginal FROM debts 
+        WHERE personId = ? AND type = 'IOU' AND status = 'open'
+      `, [person.id]);
+      
+      const uomDebts = await db.getAllAsync<{ id: string; amountOriginal: string }>(`
+        SELECT id, amountOriginal FROM debts 
+        WHERE personId = ? AND type = 'UOM' AND status = 'open'
+      `, [person.id]);
+      
+      // Calculate actual balances for each debt (original amount - payments)
+      let iouTotal = '0';
+      for (const debt of iouDebts) {
+        const balance = await getDebtBalance(debt.id);
+        iouTotal = add(iouTotal, balance);
+      }
+      
+      let uomTotal = '0';
+      for (const debt of uomDebts) {
+        const balance = await getDebtBalance(debt.id);
+        uomTotal = add(uomTotal, balance);
+      }
+      
+      const net = sub(uomTotal, iouTotal);
+      
+      return {
+        id: person.id,
+        name: person.name,
+        iouTotal: toCentsStr(iouTotal),
+        uomTotal: toCentsStr(uomTotal),
+        net: toCentsStr(net),
+      };
+    })
+  );
+  
+  return peopleWithTotals;
 }
 
 export async function createDebt(dbt: Omit<Debt,'id'|'status'|'createdAt'> & Partial<Pick<Debt,'id'|'status'|'createdAt'>>) {
