@@ -75,10 +75,8 @@ export default function Dashboard({
     setPersonModalVisible(true);
   };
 
-  const netColor =
-    dashboard && parseFloat(dashboard.net) >= 0
-      ? colors.uomColor
-      : colors.iouColor;
+  const net = dashboard?.net ? parseFloat(dashboard.net) : 0;
+  const netColor = net >= 0 ? colors.uomColor : colors.iouColor;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -97,13 +95,17 @@ export default function Dashboard({
         <Text variant="headlineMedium" style={{ color: colors.textPrimary }}>
           Dashboard
         </Text>
-        <IconButton
-          icon="cog"
-          mode="contained-tonal"
-          size={24}
-          onPress={onNavigateToSettings}
-          accessibilityLabel="Open settings"
-        />
+        {onNavigateToSettings && (
+          <IconButton
+            icon="cog"
+            mode="contained-tonal"
+            size={24}
+            onPress={onNavigateToSettings}
+            accessibilityLabel="Open settings"
+            accessibilityRole="button"
+            accessible={true}
+          />
+        )}
       </View>
 
       <ScrollView
