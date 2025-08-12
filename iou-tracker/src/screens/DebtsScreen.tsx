@@ -118,7 +118,7 @@ export default function DebtsScreen({
   };
 
   const handleAddDebtForPerson = (personId: string) => {
-    openNewDebtModal(personId, type);
+    openNewDebtModal(personId);
   };
 
   if (loading) {

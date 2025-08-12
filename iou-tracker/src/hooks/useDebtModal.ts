@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Debt, DebtType } from '../models/types';
+import { Debt } from '../models/types';
 
 export function useDebtModal() {
   // Detail Modal State
@@ -64,7 +64,7 @@ export function useDebtModal() {
   }, []);
 
   // New Debt Modal Actions
-  const openNewDebtModal = useCallback((personId?: string, type?: DebtType) => {
+  const openNewDebtModal = useCallback((personId?: string) => {
     setNewDebtPersonId(personId || null);
     setNewDebtModalVisible(true);
   }, []);
