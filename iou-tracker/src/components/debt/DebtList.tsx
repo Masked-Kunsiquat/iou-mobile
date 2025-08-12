@@ -3,14 +3,15 @@ import { ScrollView } from 'react-native';
 import { Card, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ExpandablePersonCard from '../ExpandablePersonCard';
-import { DebtType, PersonWithDebts } from '../../models/types';
+import { DebtType, Debt } from '../../models/types';
+import { PersonWithDebts } from './types';
 import { useThemeColors } from '../../theme/ThemeProvider';
 
 interface DebtListProps {
   peopleWithDebts: PersonWithDebts[];
   type: DebtType;
   personTotalKey: 'iouTotal' | 'uomTotal';
-  onDebtPress: (debtId: string) => void;
+  onDebtPress: (debt: Debt) => void;
   onAddDebt: (personId: string) => void;
 }
 

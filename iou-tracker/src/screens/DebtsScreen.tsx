@@ -6,7 +6,7 @@ import { DebtHeader } from '../components/debt/DebtHeader';
 import { DebtList } from '../components/debt/DebtList';
 import { DebtModals } from '../components/debt/DebtModals';
 import { DebtLoading } from '../components/debt/DebtLoading';
-import { DebtType } from '../models/types';
+import { DebtType, Debt } from '../models/types';
 import { useThemeColors } from '../theme/ThemeProvider';
 
 type DebtsScreenProps = {
@@ -116,6 +116,10 @@ export default function DebtsScreen({
     openNewDebtModal(personId);
   };
 
+  const handleDebtPressWrapper = (debt: Debt) => {
+    handleDebtPress(debt.id);
+  };
+
   // Show loading state
   if (loading) {
     return <DebtLoading title={title} onBack={onBack} />;
@@ -137,7 +141,7 @@ export default function DebtsScreen({
         peopleWithDebts={peopleWithDebts}
         type={type}
         personTotalKey={personTotalKey}
-        onDebtPress={handleDebtPress}
+        onDebtPress={handleDebtPressWrapper}
         onAddDebt={handleAddDebtForPerson}
       />
 

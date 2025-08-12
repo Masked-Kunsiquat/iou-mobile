@@ -3,7 +3,8 @@ import DebtDetailModal from '../DebtDetailModal';
 import EditDebtModal from '../EditDebtModal';
 import PaymentModal from '../PaymentModal';
 import DebtModal from '../DebtModal';
-import { Debt, DebtType, PersonWithDebts } from '../../models/types';
+import { Debt, DebtType } from '../../models/types';
+import { PersonWithDebts } from './types';
 
 interface DebtModalsProps {
   // Detail Modal

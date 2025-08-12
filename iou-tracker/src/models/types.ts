@@ -1,3 +1,4 @@
+// src/models/types.ts
 export type ID = string;
 
 export type Person = {
