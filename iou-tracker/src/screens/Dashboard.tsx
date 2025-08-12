@@ -17,6 +17,7 @@ import ChartCard from '../components/ChartCard';
 import { useDashboard } from '../hooks/useDashboard';
 import { usePersonModals } from '../hooks/usePersonModals';
 import { useDebtModals } from '../hooks/useDebtModals';
+import { formatMoney } from '../utils/money';
 
 interface DashboardProps {
   onNavigateToIOUs?: () => void;
@@ -192,26 +193,31 @@ export default function Dashboard({
                 <Text style={{ color: colors.primary }}>View All</Text>
               </TouchableRipple>
             </View>
-            {people.slice(0, 3).map((person) => (
-              <View
-                key={person.id}
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  paddingVertical: 8,
-                }}
-              >
-                <Text>{person.name}</Text>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color: '#F44336', fontSize: 12 }}>
-                    IOU: {dashboard.formattedIOU}
-                  </Text>
-                  <Text style={{ color: '#4CAF50', fontSize: 12 }}>
-                    UOM: {dashboard.formattedUOM}
-                  </Text>
-                </View>
-              </View>
-            ))}
+{people.slice(0, 3).map((person) => {
+  const iou = person.iouTotal ?? '0';
+  const uom = person.uomTotal ?? '0';
+  return (
+    <View
+      key={person.id}
+      style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 8,
+      }}
+    >
+      <Text>{person.name}</Text>
+      <View style={{ alignItems: 'flex-end' }}>
+        <Text style={{ color: '#F44336', fontSize: 12 }}>
+          IOU: {formatMoney(iou)}
+        </Text>
+        <Text style={{ color: '#4CAF50', fontSize: 12 }}>
+          UOM: {formatMoney(uom)}
+        </Text>
+      </View>
+    </View>
+  );
+})}
+
           </Card.Content>
         </Card>
       </ScrollView>
