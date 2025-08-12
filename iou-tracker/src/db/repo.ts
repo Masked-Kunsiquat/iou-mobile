@@ -85,45 +85,39 @@ export async function getPersonById(id: string) {
   return await db.getFirstAsync<Person>('SELECT * FROM people WHERE id=?', [id]);
 }
 
-// Replace listPeopleWithTotals function in src/db/repo.ts
-
 export async function listPeopleWithTotals() {
   const db = await openDB();
-  
+
   // Get all people first
   const people = await db.getAllAsync<{ id: string; name: string }>(`
     SELECT id, name FROM people ORDER BY name COLLATE NOCASE
   `);
-  
-  // Calculate totals for each person by getting actual balances
+
+  // For each person, load debts and compute totals with parallel balance fetches
   const peopleWithTotals = await Promise.all(
     people.map(async (person) => {
-      // Get all open debts for this person
-      const iouDebts = await db.getAllAsync<{ id: string; amountOriginal: string }>(`
-        SELECT id, amountOriginal FROM debts 
-        WHERE personId = ? AND type = 'IOU' AND status = 'open'
-      `, [person.id]);
-      
-      const uomDebts = await db.getAllAsync<{ id: string; amountOriginal: string }>(`
-        SELECT id, amountOriginal FROM debts 
-        WHERE personId = ? AND type = 'UOM' AND status = 'open'
-      `, [person.id]);
-      
-      // Calculate actual balances for each debt (original amount - payments)
-      let iouTotal = '0';
-      for (const debt of iouDebts) {
-        const balance = await getDebtBalance(debt.id);
-        iouTotal = add(iouTotal, balance);
-      }
-      
-      let uomTotal = '0';
-      for (const debt of uomDebts) {
-        const balance = await getDebtBalance(debt.id);
-        uomTotal = add(uomTotal, balance);
-      }
-      
+      const [iouDebts, uomDebts] = await Promise.all([
+        db.getAllAsync<{ id: string }>(`
+          SELECT id FROM debts 
+          WHERE personId = ? AND type = 'IOU' AND status = 'open'
+        `, [person.id]),
+        db.getAllAsync<{ id: string }>(`
+          SELECT id FROM debts 
+          WHERE personId = ? AND type = 'UOM' AND status = 'open'
+        `, [person.id]),
+      ]);
+
+      // Parallelize per-debt balance lookups
+      const [iouBalances, uomBalances] = await Promise.all([
+        Promise.all(iouDebts.map(d => getDebtBalance(d.id))),
+        Promise.all(uomDebts.map(d => getDebtBalance(d.id))),
+      ]);
+
+      // Sum balances using decimal-safe add()
+      const iouTotal = iouBalances.reduce((sum, b) => add(sum, b), '0');
+      const uomTotal = uomBalances.reduce((sum, b) => add(sum, b), '0');
       const net = sub(uomTotal, iouTotal);
-      
+
       return {
         id: person.id,
         name: person.name,
@@ -133,7 +127,7 @@ export async function listPeopleWithTotals() {
       };
     })
   );
-  
+
   return peopleWithTotals;
 }
 
