@@ -1,0 +1,1 @@
+export const AUTO_SETTLE_THRESHOLD = '0.01' as const;
