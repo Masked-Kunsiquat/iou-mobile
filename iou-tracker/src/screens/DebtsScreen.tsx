@@ -117,7 +117,7 @@ export default function DebtsScreen({
   };
 
   const handleDebtPressWrapper = (debt: Debt) => {
-    handleDebtPress(debt.id);
+    handleDebtPress(debt);
   };
 
   // Show loading state
