@@ -1,29 +1,17 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { ScrollView, Alert } from 'react-native';
+import React from 'react';
+import { ScrollView } from 'react-native';
 import { Appbar, Card, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLedgerStore } from '../store/ledgerStore';
-import {
-  getDebtsByPersonAndType,
-  getDebtWithBalance,
-  updateDebt,
-  deleteDebt,
-  markDebtSettled,
-  addPayment,
-  createDebt,
-} from '../db/repo';
+import { useDebts } from '../hooks/useDebts';
+import { useDebtModal } from '../hooks/useDebtModal';
 import ExpandablePersonCard from '../components/ExpandablePersonCard';
 import DebtDetailModal from '../components/DebtDetailModal';
 import EditDebtModal from '../components/EditDebtModal';
 import PaymentModal from '../components/PaymentModal';
 import DebtModal from '../components/DebtModal';
-import { Debt, DebtType, Person } from '../models/types';
+import { DebtType } from '../models/types';
 import { useThemeColors } from '../theme/ThemeProvider';
-
-type PersonWithTotals = Person & {
-  iouTotal?: string;
-  uomTotal?: string;
-};
 
 type DebtsScreenProps = {
   type: DebtType;
@@ -44,119 +32,65 @@ export default function DebtsScreen({
   totalColor,
   onBack,
 }: DebtsScreenProps) {
-  const { dashboard, people, refresh } = useLedgerStore();
+  const { dashboard } = useLedgerStore();
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
 
-  const [peopleWithDebts, setPeopleWithDebts] = useState<
-    Array<{ person: PersonWithTotals; debts: (Debt & { balance: string })[] }>
-  >([]);
-  const [loading, setLoading] = useState(true);
+  // Business logic hooks
+  const {
+    peopleWithDebts,
+    loading,
+    handleEditDebt,
+    handleDeleteDebt,
+    handleMarkSettled,
+    handleAddPayment,
+    handleCreateDebt,
+  } = useDebts({ type, personTotalKey });
 
-  const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
-  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  // Modal state management hook
+  const {
+    selectedDebt,
+    detailModalVisible,
+    editModalVisible,
+    editingDebt,
+    paymentModalVisible,
+    paymentDebt,
+    newDebtModalVisible,
+    newDebtPersonId,
+    handleDebtPress,
+    handleEditDebt: openEditFromDetail,
+    handleAddPayment: openPaymentFromDetail,
+    closeDetailModal,
+    closeEditModal,
+    closePaymentModal,
+    closeNewDebtModal,
+    openNewDebtModal,
+    reopenDetailAfterPayment,
+  } = useDebtModal();
 
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
-
-  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
-  const [paymentDebt, setPaymentDebt] = useState<Debt | null>(null);
-
-  const [newDebtModalVisible, setNewDebtModalVisible] = useState(false);
-  const [newDebtPersonId, setNewDebtPersonId] = useState<string | null>(null);
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const withBalance = await Promise.all(
-        people
-          .filter((p) => parseFloat((p as PersonWithTotals)[personTotalKey] || '0') > 0)
-          .map(async (person) => {
-            const debts = await getDebtsByPersonAndType(person.id, type);
-            const debtsWithBalanceRaw = await Promise.all(
-              debts.map((debt) => getDebtWithBalance(debt.id))
-            );
-            const debtsWithBalance = debtsWithBalanceRaw.filter(
-              (d): d is Debt & { balance: string } => !!d
-            );
-            return { person: person as PersonWithTotals, debts: debtsWithBalance };
-          })
-      );
-      setPeopleWithDebts(withBalance);
-    } catch (e) {
-      console.error(`Failed to load ${type} data:`, e);
-    } finally {
-      setLoading(false);
-    }
-  }, [people, personTotalKey, type]);
-
-  // On mount: just refresh store; data will load when `people` updates
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  // Load data whenever people list changes (and deps are stable)
-  useEffect(() => {
-    if (people.length) {
-      loadData();
-    }
-  }, [people, loadData]);
-
-  const handleDebtPress = (debt: Debt) => {
-    setSelectedDebt(debt);
-    setDetailModalVisible(true);
-  };
-
-  const handleEditDebt = (debt: Debt) => {
-    setEditingDebt(debt);
-    setEditModalVisible(true);
-  };
-
+  // Event handlers that combine hooks
   const handleSaveEdit = async (
     debtId: string,
     updates: { description: string; amountOriginal: string; dueAt?: string | null }
   ) => {
-    try {
-      await updateDebt(debtId, updates);
-      await refresh();
-      await loadData();
-      setEditModalVisible(false);
-    } catch (e) {
-      console.error('Failed to update debt:', e);
-      Alert.alert('Error', 'Failed to update debt');
+    const success = await handleEditDebt(debtId, updates);
+    if (success) {
+      closeEditModal();
     }
   };
 
-  const handleDeleteDebt = async (debtId: string) => {
-    try {
-      await deleteDebt(debtId);
-      await refresh();
-      await loadData();
-      setDetailModalVisible(false);
-    } catch (e) {
-      console.error('Failed to delete debt:', e);
-      Alert.alert('Error', 'Failed to delete debt');
+  const handleDeleteDebtFromModal = async (debtId: string) => {
+    const success = await handleDeleteDebt(debtId);
+    if (success) {
+      closeDetailModal();
     }
   };
 
-  const handleMarkSettled = async (debtId: string) => {
-    try {
-      await markDebtSettled(debtId);
-      await refresh();
-      await loadData();
-      setDetailModalVisible(false);
-    } catch (e) {
-      console.error('Failed to mark debt as settled:', e);
-      Alert.alert('Error', 'Failed to mark debt as settled');
+  const handleMarkSettledFromModal = async (debtId: string) => {
+    const success = await handleMarkSettled(debtId);
+    if (success) {
+      closeDetailModal();
     }
-  };
-
-  const handleAddPayment = (debtId: string) => {
-    const debt = peopleWithDebts.flatMap(({ debts }) => debts).find((d) => d.id === debtId);
-    if (!debt) return;
-    setPaymentDebt(debt);
-    setPaymentModalVisible(true);
-    setDetailModalVisible(false);
   };
 
   const handleSavePayment = async (payment: {
@@ -165,29 +99,10 @@ export default function DebtsScreen({
     date: string;
     note?: string;
   }) => {
-    try {
-      await addPayment(payment);
-      await refresh();
-      await loadData();
-
-      // Close/clear payment modal BEFORE opening detail modal to avoid stacking
-      setPaymentModalVisible(false);
-      setPaymentDebt(null);
-
-      const updated = await getDebtWithBalance(payment.debtId);
-      if (updated) {
-        setSelectedDebt(updated);
-        setDetailModalVisible(true);
-      }
-    } catch (e) {
-      console.error('Failed to add payment:', e);
-      Alert.alert('Error', 'Failed to add payment');
+    const updatedDebt = await handleAddPayment(payment);
+    if (updatedDebt) {
+      reopenDetailAfterPayment(updatedDebt);
     }
-  };
-
-  const handleAddDebtForPerson = (personId: string) => {
-    setNewDebtPersonId(personId);
-    setNewDebtModalVisible(true);
   };
 
   const handleSaveNewDebt = async (debt: {
@@ -196,16 +111,14 @@ export default function DebtsScreen({
     description: string;
     amountOriginal: string;
   }) => {
-    try {
-      await createDebt(debt);
-      await refresh();
-      await loadData();
-      setNewDebtModalVisible(false);
-      setNewDebtPersonId(null);
-    } catch (e) {
-      console.error('Failed to create debt:', e);
-      Alert.alert('Error', 'Failed to create debt');
+    const success = await handleCreateDebt(debt);
+    if (success) {
+      closeNewDebtModal();
     }
+  };
+
+  const handleAddDebtForPerson = (personId: string) => {
+    openNewDebtModal(personId);
   };
 
   if (loading) {
@@ -281,36 +194,34 @@ export default function DebtsScreen({
         )}
       </ScrollView>
 
+      {/* Modals */}
       <DebtDetailModal
         visible={detailModalVisible}
-        onDismiss={() => setDetailModalVisible(false)}
+        onDismiss={closeDetailModal}
         debt={selectedDebt}
-        onEdit={handleEditDebt}
-        onDelete={handleDeleteDebt}
-        onAddPayment={handleAddPayment}
-        onMarkSettled={handleMarkSettled}
+        onEdit={openEditFromDetail}
+        onDelete={handleDeleteDebtFromModal}
+        onAddPayment={(debtId) => openPaymentFromDetail(debtId, peopleWithDebts)}
+        onMarkSettled={handleMarkSettledFromModal}
       />
 
       <EditDebtModal
         visible={editModalVisible}
-        onDismiss={() => setEditModalVisible(false)}
+        onDismiss={closeEditModal}
         onSave={handleSaveEdit}
         debt={editingDebt}
       />
 
       <PaymentModal
         visible={paymentModalVisible}
-        onDismiss={() => setPaymentModalVisible(false)}
+        onDismiss={closePaymentModal}
         onSave={handleSavePayment}
         debt={paymentDebt}
       />
 
       <DebtModal
         visible={newDebtModalVisible}
-        onDismiss={() => {
-          setNewDebtModalVisible(false);
-          setNewDebtPersonId(null);
-        }}
+        onDismiss={closeNewDebtModal}
         onSave={handleSaveNewDebt}
         defaultType={type}
         fixedType={type}
