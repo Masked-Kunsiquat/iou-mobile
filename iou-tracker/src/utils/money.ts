@@ -44,6 +44,15 @@ export function eq(a: string, b: string): boolean {
   return d(a).eq(d(b));
 }
 
+export function isZero(a: string): boolean {
+  return d(a).eq(0);
+}
+
+// (optional, if you want parity)
+export function isNegative(a: string): boolean {
+  return d(a).lt(0);
+}
+
 export function abs(a: string): string {
   return d(a).abs().toFixed(2);
 }

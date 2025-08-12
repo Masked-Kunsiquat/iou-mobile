@@ -1,10 +1,10 @@
 // src/services/DebtService.ts
 import { Debt, DebtType, Payment } from '../models/types';
-import { 
-  createDebt, 
-  addPayment, 
-  updateDebt, 
-  deleteDebt, 
+import {
+  createDebt,
+  addPayment,
+  updateDebt,
+  deleteDebt,
   markDebtSettled,
   getDebtWithBalance,
   getDebtsByPersonAndType,
@@ -13,7 +13,8 @@ import {
 } from '../db/repo';
 import { PersonService } from './PersonService';
 import { BusinessError } from './errors';
-import { lte, gt } from '../utils/money';
+import { isZero, lt, lte } from '../utils/money';
+import { AUTO_SETTLE_THRESHOLD } from '../constants/money';
 
 export type CreateDebtRequest = {
   type: DebtType;
@@ -41,35 +42,37 @@ export class DebtService {
    * Create a new debt with validation
    */
   static async createDebt(data: CreateDebtRequest): Promise<string> {
-    // Validation
     if (!data.description || data.description.trim().length === 0) {
       throw new BusinessError('Debt description is required');
     }
 
-    if (!data.amountOriginal || data.amountOriginal === '0' || data.amountOriginal === '0.00') {
+    if (!data.amountOriginal?.trim()) {
+      throw new BusinessError('Debt amount is required');
+    }
+    if (isZero(data.amountOriginal)) {
       throw new BusinessError('Debt amount must be greater than zero');
     }
-
-    if (gt('0', data.amountOriginal)) {
+    if (lt(data.amountOriginal, '0')) {
       throw new BusinessError('Debt amount cannot be negative');
     }
 
-    // Business rule: Verify person exists
+    // Verify person exists
     const person = await PersonService.getPersonById(data.personId);
     if (!person) {
       throw new BusinessError('Person not found');
     }
 
-    // Business logic: normalize data
     const normalizedData = {
       ...data,
       description: data.description.trim(),
     };
 
     const id = await createDebt(normalizedData);
-    
-    console.log(`Debt created: ${data.type} for ${person.name} - ${data.description} ($${data.amountOriginal})`);
-    
+
+    console.log(
+      `Debt created: ${data.type} for ${person.name} - ${data.description} ($${data.amountOriginal})`
+    );
+
     return id;
   }
 
@@ -77,7 +80,6 @@ export class DebtService {
    * Update debt with validation
    */
   static async updateDebt(debtId: string, updates: UpdateDebtRequest): Promise<void> {
-    // Validation
     if (updates.description !== undefined) {
       if (!updates.description || updates.description.trim().length === 0) {
         throw new BusinessError('Debt description is required');
@@ -86,16 +88,20 @@ export class DebtService {
     }
 
     if (updates.amountOriginal !== undefined) {
-      if (!updates.amountOriginal || updates.amountOriginal === '0' || updates.amountOriginal === '0.00') {
+      const amt = updates.amountOriginal;
+      if (!amt?.trim()) {
+        throw new BusinessError('Debt amount is required');
+      }
+      if (isZero(amt)) {
         throw new BusinessError('Debt amount must be greater than zero');
       }
-      if (gt('0', updates.amountOriginal)) {
+      if (lt(amt, '0')) {
         throw new BusinessError('Debt amount cannot be negative');
       }
     }
 
     await updateDebt(debtId, updates);
-    
+
     console.log(`Debt updated: ${debtId}`);
   }
 
@@ -103,42 +109,39 @@ export class DebtService {
    * Add payment with auto-settlement logic
    */
   static async addPaymentWithAutoSettle(payment: AddPaymentRequest): Promise<string> {
-    // Validation
-    if (!payment.amount || payment.amount === '0' || payment.amount === '0.00') {
+    if (!payment.amount?.trim()) {
+      throw new BusinessError('Payment amount is required');
+    }
+    if (isZero(payment.amount)) {
       throw new BusinessError('Payment amount must be greater than zero');
     }
-
-    if (gt('0', payment.amount)) {
+    if (lt(payment.amount, '0')) {
       throw new BusinessError('Payment amount cannot be negative');
     }
 
-    // Business rule: Check if debt exists and is still open
     const debt = await getDebtWithBalance(payment.debtId);
     if (!debt) {
       throw new BusinessError('Debt not found');
     }
-
     if (debt.status === 'settled') {
       throw new BusinessError('Cannot add payment to settled debt');
     }
-
-    // Business rule: Prevent overpayment
-    if (gt(payment.amount, debt.balance)) {
-      throw new BusinessError(`Payment amount ($${payment.amount}) cannot exceed remaining balance ($${debt.balance})`);
+    if (lt(debt.balance, payment.amount)) {
+      throw new BusinessError(
+        `Payment amount ($${payment.amount}) cannot exceed remaining balance ($${debt.balance})`
+      );
     }
 
     const paymentId = await addPayment(payment);
-    
-    // Business logic: Auto-settle logic is handled in repo.addPayment
-    // but we could add additional business rules here like notifications
-    
+
+    // Repo handles auto-settle — we just log consistently using shared threshold
     const newBalance = await getDebtBalance(payment.debtId);
-    if (lte(newBalance, '0.01')) {
+    if (lte(newBalance, AUTO_SETTLE_THRESHOLD)) {
       console.log(`Debt auto-settled: ${payment.debtId} (balance: $${newBalance})`);
     }
-    
+
     console.log(`Payment added: $${payment.amount} to debt ${payment.debtId}`);
-    
+
     return paymentId;
   }
 
@@ -146,18 +149,16 @@ export class DebtService {
    * Mark debt as settled with business rules
    */
   static async markDebtSettled(debtId: string): Promise<void> {
-    // Business rule: Check if debt exists
     const debt = await getDebtWithBalance(debtId);
     if (!debt) {
       throw new BusinessError('Debt not found');
     }
-
     if (debt.status === 'settled') {
       throw new BusinessError('Debt is already settled');
     }
 
     await markDebtSettled(debtId);
-    
+
     console.log(`Debt manually settled: ${debtId}`);
   }
 
@@ -165,20 +166,20 @@ export class DebtService {
    * Delete debt with validation
    */
   static async deleteDebt(debtId: string): Promise<void> {
-    // Business rule: Check if debt exists
     const debt = await getDebtWithBalance(debtId);
     if (!debt) {
       throw new BusinessError('Debt not found');
     }
 
-    // Business rule: Only allow deletion of open debts with no payments
     const payments = await getPaymentsByDebt(debtId);
     if (payments.length > 0) {
-      throw new BusinessError('Cannot delete debt that has payments. Mark as settled instead.');
+      throw new BusinessError(
+        'Cannot delete debt that has payments. Mark as settled instead.'
+      );
     }
 
     await deleteDebt(debtId);
-    
+
     console.log(`Debt deleted: ${debtId}`);
   }
 
@@ -186,7 +187,6 @@ export class DebtService {
    * Get debts for a person by type with business logic
    */
   static async getDebtsForPerson(personId: string, type: DebtType): Promise<Debt[]> {
-    // Validate person exists
     const person = await PersonService.getPersonById(personId);
     if (!person) {
       throw new BusinessError('Person not found');
@@ -215,7 +215,6 @@ export class DebtService {
    * Get payments for a debt
    */
   static async getPaymentsForDebt(debtId: string): Promise<Payment[]> {
-    // Validate debt exists
     const debt = await getDebtWithBalance(debtId);
     if (!debt) {
       throw new BusinessError('Debt not found');
