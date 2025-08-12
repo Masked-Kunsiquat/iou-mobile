@@ -133,31 +133,38 @@ export function useDebts({ type, personTotalKey }: UseDebtsProps) {
     }
   }, [refresh, loadData]);
 
-  const handleAddPayment = useCallback(async (payment: {
-    debtId: string;
-    amount: string;
-    date: string;
-    note?: string;
-  }) => {
-    try {
-      await DebtService.addPaymentWithAutoSettle(payment);
-      await refresh();
-      await loadData();
+const handleAddPayment = useCallback(async (payment: {
+  debtId: string;
+  amount: string;
+  date: string;
+  note?: string;
+}) => {
+  try {
+    await DebtService.addPaymentWithAutoSettle(payment);
+    await refresh();
+    await loadData();
 
-      // Return updated debt for detail modal
-      const updated = await getDebtWithBalance(payment.debtId);
-      return updated;
-    } catch (error: unknown) {
-      console.error('Failed to add payment:', error);
-      
-      if (error instanceof BusinessError) {
-        Alert.alert('Error', error.message);
-      } else {
-        Alert.alert('Error', 'Failed to add payment');
-      }
-      return null;
+    // Return updated debt for detail modal
+    const updated = await getDebtWithBalance(payment.debtId);
+    if (!updated) {
+      // Either throw or return sentinel
+      throw new Error(`Updated debt not found for id: ${payment.debtId}`);
+      // OR: return null; (if you want callers to handle gracefully)
     }
-  }, [refresh, loadData]);
+
+    return updated;
+  } catch (error: unknown) {
+    console.error('Failed to add payment:', error);
+
+    if (error instanceof BusinessError) {
+      Alert.alert('Error', error.message);
+    } else {
+      Alert.alert('Error', 'Failed to add payment');
+    }
+    return null;
+  }
+}, [refresh, loadData]);
+
 
   const handleCreateDebt = useCallback(async (debt: {
     type: DebtType;
