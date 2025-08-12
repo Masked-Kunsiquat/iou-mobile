@@ -60,6 +60,8 @@ export function useDebts({ type, personTotalKey }: UseDebtsProps) {
   useEffect(() => {
     if (people.length) {
       loadData();
+    } else {
+      setLoading(false);
     }
   }, [people, loadData]);
 
