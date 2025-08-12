@@ -114,7 +114,10 @@ export default function Dashboard({
         }}
       >
         {/* Chart Card */}
-        <ChartCard />
+        <ChartCard 
+          totalIOU={dashboard?.totalIOU ?? '0.00'}
+          totalUOM={dashboard?.totalUOM ?? '0.00'}
+        />
 
         {/* Totals Section */}
         <Card style={{ backgroundColor: colors.surface }}>
