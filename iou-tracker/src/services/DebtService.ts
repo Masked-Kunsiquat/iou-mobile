@@ -6,7 +6,7 @@ import {
   updateDebt,
   deleteDebt,
   markDebtSettled,
-  getDebtWithBalance,
+  getDebtWithBalance as repoGetDebtWithBalance, // aliased to avoid name clash
   getDebtsByPersonAndType,
   getPaymentsByDebt,
   getDebtBalance
@@ -119,7 +119,7 @@ export class DebtService {
       throw new BusinessError('Payment amount cannot be negative');
     }
 
-    const debt = await getDebtWithBalance(payment.debtId);
+    const debt = await repoGetDebtWithBalance(payment.debtId);
     if (!debt) {
       throw new BusinessError('Debt not found');
     }
@@ -149,7 +149,7 @@ export class DebtService {
    * Mark debt as settled with business rules
    */
   static async markDebtSettled(debtId: string): Promise<void> {
-    const debt = await getDebtWithBalance(debtId);
+    const debt = await repoGetDebtWithBalance(debtId);
     if (!debt) {
       throw new BusinessError('Debt not found');
     }
@@ -166,7 +166,7 @@ export class DebtService {
    * Delete debt with validation
    */
   static async deleteDebt(debtId: string): Promise<void> {
-    const debt = await getDebtWithBalance(debtId);
+    const debt = await repoGetDebtWithBalance(debtId);
     if (!debt) {
       throw new BusinessError('Debt not found');
     }
@@ -196,14 +196,15 @@ export class DebtService {
   }
 
   /**
-   * Get debt with balance and validation
+   * Get a debt with balance and validation by id
+   * (Renamed to avoid collision with repo.getDebtWithBalance)
    */
-  static async getDebtWithBalance(debtId: string) {
+  static async getDebtWithBalanceById(debtId: string) {
     if (!debtId) {
       throw new BusinessError('Debt ID is required');
     }
 
-    const debt = await getDebtWithBalance(debtId);
+    const debt = await repoGetDebtWithBalance(debtId);
     if (!debt) {
       throw new BusinessError('Debt not found');
     }
@@ -215,7 +216,7 @@ export class DebtService {
    * Get payments for a debt
    */
   static async getPaymentsForDebt(debtId: string): Promise<Payment[]> {
-    const debt = await getDebtWithBalance(debtId);
+    const debt = await repoGetDebtWithBalance(debtId);
     if (!debt) {
       throw new BusinessError('Debt not found');
     }
