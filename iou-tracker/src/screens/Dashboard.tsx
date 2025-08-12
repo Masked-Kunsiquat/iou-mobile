@@ -5,6 +5,7 @@ import {
   Text,
   Divider,
   TouchableRipple,
+  IconButton,
 } from 'react-native-paper';
 import { useLedgerStore } from '../store/ledgerStore';
 import PersonModal from '../components/PersonModal';
@@ -20,14 +21,14 @@ interface DashboardProps {
   onNavigateToIOUs?: () => void;
   onNavigateToUOMs?: () => void;
   onNavigateToContacts?: () => void;
-  onNavigateToSettings?: () => void; // NEW
+  onNavigateToSettings?: () => void;
 }
 
 export default function Dashboard({
   onNavigateToIOUs,
   onNavigateToUOMs,
   onNavigateToContacts,
-  onNavigateToSettings, // NEW
+  onNavigateToSettings,
 }: DashboardProps) {
   const { dashboard, refresh } = useLedgerStore();
   const colors = useThemeColors();
@@ -75,132 +76,177 @@ export default function Dashboard({
   };
 
   const netColor =
-    dashboard && parseFloat(dashboard.net) >= 0 ? colors.uomColor : colors.iouColor;
+    dashboard && parseFloat(dashboard.net) >= 0
+      ? colors.uomColor
+      : colors.iouColor;
 
   return (
-    <ScrollView
-      contentContainerStyle={{
-        paddingTop: insets.top + 8,
-        paddingBottom: 16 + insets.bottom,
-        paddingHorizontal: 16,
-        gap: 12,
-      }}
-      style={{ backgroundColor: colors.background }}
-    >
-      {/* Totals card with 3 rows */}
-      <Card style={{ backgroundColor: colors.surface }}>
-        <Card.Content style={{ paddingVertical: 0 }}>
-          {/* IOU row */}
-          <TouchableRipple onPress={onNavigateToIOUs} accessibilityLabel="Go to IOU list">
-            <View
-              style={{
-                paddingVertical: 16,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <Text variant="titleMedium" style={{ color: colors.textPrimary }}>
-                I Owe (IOU)
-              </Text>
-              <Text variant="titleLarge" style={{ color: colors.iouColor }}>
-                ${dashboard?.totalIOU ?? '0.00'}
-              </Text>
-            </View>
-          </TouchableRipple>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* Header with settings button */}
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingTop: insets.top + 8,
+          paddingHorizontal: 16,
+          paddingBottom: 8,
+          backgroundColor: colors.surface,
+        }}
+      >
+        <Text variant="headlineMedium" style={{ color: colors.textPrimary }}>
+          Dashboard
+        </Text>
+        <IconButton
+          icon="cog"
+          mode="contained-tonal"
+          size={24}
+          onPress={onNavigateToSettings}
+          accessibilityLabel="Open settings"
+        />
+      </View>
 
-          <Divider />
+      <ScrollView
+        contentContainerStyle={{
+          padding: 16,
+          gap: 16,
+          paddingBottom: 16 + insets.bottom,
+        }}
+      >
+        {/* Chart Card */}
+        <ChartCard />
 
-          {/* Net row */}
-          <View
-            style={{
-              paddingVertical: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Text variant="titleMedium" style={{ color: colors.textPrimary }}>
-              Net Balance
+        {/* Totals Section */}
+        <Card style={{ backgroundColor: colors.surface }}>
+          <Card.Content style={{ gap: 16 }}>
+            <Text variant="titleLarge" style={{ color: colors.textPrimary }}>
+              Overview
             </Text>
-            <Text variant="titleLarge" style={{ color: netColor }}>
-              ${dashboard?.net ?? '0.00'}
-            </Text>
-          </View>
 
-          <Divider />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+              <View style={{ alignItems: 'center' }}>
+                <Text variant="labelMedium" style={{ color: colors.textSecondary }}>
+                  I OWE
+                </Text>
+                <Text
+                  variant="headlineSmall"
+                  style={{ color: colors.iouColor, fontWeight: 'bold' }}
+                >
+                  ${dashboard?.totalIOU ?? '0.00'}
+                </Text>
+              </View>
 
-          {/* UOM row */}
-          <TouchableRipple onPress={onNavigateToUOMs} accessibilityLabel="Go to UOM list">
-            <View
-              style={{
-                paddingVertical: 16,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <Text variant="titleMedium" style={{ color: colors.textPrimary }}>
-                Owed to Me (UOM)
-              </Text>
-              <Text variant="titleLarge" style={{ color: colors.uomColor }}>
-                ${dashboard?.totalUOM ?? '0.00'}
-              </Text>
+              <Divider orientation="vertical" style={{ height: 40 }} />
+
+              <View style={{ alignItems: 'center' }}>
+                <Text variant="labelMedium" style={{ color: colors.textSecondary }}>
+                  OWED TO ME
+                </Text>
+                <Text
+                  variant="headlineSmall"
+                  style={{ color: colors.uomColor, fontWeight: 'bold' }}
+                >
+                  ${dashboard?.totalUOM ?? '0.00'}
+                </Text>
+              </View>
+
+              <Divider orientation="vertical" style={{ height: 40 }} />
+
+              <View style={{ alignItems: 'center' }}>
+                <Text variant="labelMedium" style={{ color: colors.textSecondary }}>
+                  NET BALANCE
+                </Text>
+                <Text
+                  variant="headlineSmall"
+                  style={{ color: netColor, fontWeight: 'bold' }}
+                >
+                  ${dashboard?.net ?? '0.00'}
+                </Text>
+              </View>
             </View>
-          </TouchableRipple>
-        </Card.Content>
-      </Card>
+          </Card.Content>
+        </Card>
 
-      {/* Stacked totals bar (no external chart deps) */}
-      <ChartCard
-        title=""
-        totalIOU={dashboard?.totalIOU ?? '0.00'}
-        totalUOM={dashboard?.totalUOM ?? '0.00'}
+        {/* Quick Actions */}
+        <Card style={{ backgroundColor: colors.surface }}>
+          <Card.Content style={{ gap: 16 }}>
+            <Text variant="titleLarge" style={{ color: colors.textPrimary }}>
+              Quick Actions
+            </Text>
+
+            <View style={{ gap: 8 }}>
+              <TouchableRipple
+                onPress={onNavigateToIOUs}
+                style={{
+                  padding: 12,
+                  borderRadius: 8,
+                  backgroundColor: colors.iouContainer,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Text variant="titleMedium" style={{ color: colors.textPrimary, flex: 1 }}>
+                    View My IOUs
+                  </Text>
+                  <Text variant="headlineSmall" style={{ color: colors.iouColor }}>
+                    ${dashboard?.totalIOU ?? '0.00'}
+                  </Text>
+                </View>
+              </TouchableRipple>
+
+              <TouchableRipple
+                onPress={onNavigateToUOMs}
+                style={{
+                  padding: 12,
+                  borderRadius: 8,
+                  backgroundColor: colors.uomContainer,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Text variant="titleMedium" style={{ color: colors.textPrimary, flex: 1 }}>
+                    View Money Owed to Me
+                  </Text>
+                  <Text variant="headlineSmall" style={{ color: colors.uomColor }}>
+                    ${dashboard?.totalUOM ?? '0.00'}
+                  </Text>
+                </View>
+              </TouchableRipple>
+
+              <TouchableRipple
+                onPress={onNavigateToContacts}
+                style={{
+                  padding: 12,
+                  borderRadius: 8,
+                  backgroundColor: colors.surfaceVariant,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Text variant="titleMedium" style={{ color: colors.textPrimary, flex: 1 }}>
+                    Manage Contacts
+                  </Text>
+                  <IconButton icon="chevron-right" size={20} />
+                </View>
+              </TouchableRipple>
+            </View>
+          </Card.Content>
+        </Card>
+      </ScrollView>
+
+      {/* Floating Action Button */}
+      <FABMenu
+        onAddIOU={handleAddIOU}
+        onAddUOM={handleAddUOM}
+        onAddContact={handleAddContact}
       />
 
-      {/* Contacts Navigation */}
-      <TouchableRipple onPress={onNavigateToContacts} borderless={false} accessibilityLabel="Manage Contacts">
-        <Card style={{ backgroundColor: colors.surface }}>
-          <Card.Content
-            style={{
-              height: 60,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text variant="titleMedium" style={{ color: colors.textPrimary }}>
-              Manage Contacts
-            </Text>
-          </Card.Content>
-        </Card>
-      </TouchableRipple>
-
-      {/* Settings Navigation (NEW) */}
-      <TouchableRipple onPress={onNavigateToSettings} borderless={false} accessibilityLabel="Open Settings">
-        <Card style={{ backgroundColor: colors.surface }}>
-          <Card.Content
-            style={{
-              height: 60,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text variant="titleMedium" style={{ color: colors.textPrimary }}>
-              Settings
-            </Text>
-          </Card.Content>
-        </Card>
-      </TouchableRipple>
-
-      <FABMenu onAddIOU={handleAddIOU} onAddUOM={handleAddUOM} onAddContact={handleAddContact} />
-
+      {/* Modals */}
       <PersonModal
         visible={personModalVisible}
-        onDismiss={() => setPersonModalVisible(false)}
+        onDismiss={() => {
+          setPersonModalVisible(false);
+          setEditingPerson(null);
+        }}
         onSave={handleSavePerson}
-        editPerson={editingPerson}
+        person={editingPerson}
       />
 
       <DebtModal
@@ -209,6 +255,6 @@ export default function Dashboard({
         onSave={handleSaveDebt}
         defaultType={debtType}
       />
-    </ScrollView>
+    </View>
   );
 }
