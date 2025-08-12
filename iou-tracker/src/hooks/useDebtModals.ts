@@ -1,12 +1,16 @@
+// src/hooks/useDebtModals.ts
 import { useState, useCallback } from 'react';
+import { Alert } from 'react-native';
 import { DebtType, Debt } from '../models/types';
-import { createDebt } from '../db/repo';
+import { DebtService } from '../services/DebtService';
+import { BusinessError } from '../services/errors';
 import { useLedgerStore } from '../store/ledgerStore';
 
 export function useDebtModals() {
   const { refresh } = useLedgerStore();
   const [debtModalVisible, setDebtModalVisible] = useState(false);
   const [debtType, setDebtType] = useState<DebtType>('IOU');
+  const [loading, setLoading] = useState(false);
 
   const openDebtModal = useCallback((type: DebtType) => {
     setDebtType(type);
@@ -23,14 +27,28 @@ export function useDebtModals() {
     description: string;
     amountOriginal: string;
   }) => {
-    await createDebt(debt);
-    await refresh();
-    closeDebtModal();
+    setLoading(true);
+    try {
+      await DebtService.createDebt(debt);
+      await refresh();
+      closeDebtModal();
+    } catch (error: unknown) {
+      console.error('Failed to save debt:', error);
+      
+      if (error instanceof BusinessError) {
+        Alert.alert('Error', error.message);
+      } else {
+        Alert.alert('Error', 'Failed to save debt. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
   }, [refresh, closeDebtModal]);
 
   return {
     debtModalVisible,
     debtType,
+    loading,
     openDebtModal,
     closeDebtModal,
     handleSaveDebt,

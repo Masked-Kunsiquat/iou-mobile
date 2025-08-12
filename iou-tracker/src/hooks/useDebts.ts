@@ -1,15 +1,10 @@
+// src/hooks/useDebts.ts
 import { useState, useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useLedgerStore } from '../store/ledgerStore';
-import {
-  getDebtsByPersonAndType,
-  getDebtWithBalance,
-  updateDebt,
-  deleteDebt,
-  markDebtSettled,
-  addPayment,
-  createDebt,
-} from '../db/repo';
+import { DebtService } from '../services/DebtService';
+import { BusinessError } from '../services/errors';
+import { getDebtWithBalance } from '../db/repo';
 import { Debt, DebtType, Person } from '../models/types';
 
 type PersonWithTotals = Person & {
@@ -38,14 +33,19 @@ export function useDebts({ type, personTotalKey }: UseDebtsProps) {
         people
           .filter((p) => parseFloat((p as PersonWithTotals)[personTotalKey] || '0') > 0)
           .map(async (person) => {
-            const debts = await getDebtsByPersonAndType(person.id, type);
-            const debtsWithBalanceRaw = await Promise.all(
-              debts.map((debt) => getDebtWithBalance(debt.id))
-            );
-            const debtsWithBalance = debtsWithBalanceRaw.filter(
-              (d): d is DebtWithBalance => !!d
-            );
-            return { person: person as PersonWithTotals, debts: debtsWithBalance };
+            try {
+              const debts = await DebtService.getDebtsForPerson(person.id, type);
+              const debtsWithBalanceRaw = await Promise.all(
+                debts.map((debt) => getDebtWithBalance(debt.id))
+              );
+              const debtsWithBalance = debtsWithBalanceRaw.filter(
+                (d): d is DebtWithBalance => !!d
+              );
+              return { person: person as PersonWithTotals, debts: debtsWithBalance };
+            } catch (error) {
+              console.error(`Failed to load debts for person ${person.name}:`, error);
+              return { person: person as PersonWithTotals, debts: [] };
+            }
           })
       );
       setPeopleWithDebts(withBalance);
@@ -75,45 +75,60 @@ export function useDebts({ type, personTotalKey }: UseDebtsProps) {
     // Data will be reloaded via the people effect above
   }, [refresh]);
 
-  // Business logic actions
+  // Business logic actions using service layer
   const handleEditDebt = useCallback(async (
     debtId: string,
     updates: { description: string; amountOriginal: string; dueAt?: string | null }
   ) => {
     try {
-      await updateDebt(debtId, updates);
+      await DebtService.updateDebt(debtId, updates);
       await refresh();
       await loadData();
       return true;
-    } catch (e) {
-      console.error('Failed to update debt:', e);
-      Alert.alert('Error', 'Failed to update debt');
+    } catch (error: unknown) {
+      console.error('Failed to update debt:', error);
+      
+      if (error instanceof BusinessError) {
+        Alert.alert('Error', error.message);
+      } else {
+        Alert.alert('Error', 'Failed to update debt');
+      }
       return false;
     }
   }, [refresh, loadData]);
 
   const handleDeleteDebt = useCallback(async (debtId: string) => {
     try {
-      await deleteDebt(debtId);
+      await DebtService.deleteDebt(debtId);
       await refresh();
       await loadData();
       return true;
-    } catch (e) {
-      console.error('Failed to delete debt:', e);
-      Alert.alert('Error', 'Failed to delete debt');
+    } catch (error: unknown) {
+      console.error('Failed to delete debt:', error);
+      
+      if (error instanceof BusinessError) {
+        Alert.alert('Error', error.message);
+      } else {
+        Alert.alert('Error', 'Failed to delete debt');
+      }
       return false;
     }
   }, [refresh, loadData]);
 
   const handleMarkSettled = useCallback(async (debtId: string) => {
     try {
-      await markDebtSettled(debtId);
+      await DebtService.markDebtSettled(debtId);
       await refresh();
       await loadData();
       return true;
-    } catch (e) {
-      console.error('Failed to mark debt as settled:', e);
-      Alert.alert('Error', 'Failed to mark debt as settled');
+    } catch (error: unknown) {
+      console.error('Failed to mark debt as settled:', error);
+      
+      if (error instanceof BusinessError) {
+        Alert.alert('Error', error.message);
+      } else {
+        Alert.alert('Error', 'Failed to mark debt as settled');
+      }
       return false;
     }
   }, [refresh, loadData]);
@@ -125,16 +140,21 @@ export function useDebts({ type, personTotalKey }: UseDebtsProps) {
     note?: string;
   }) => {
     try {
-      await addPayment(payment);
+      await DebtService.addPaymentWithAutoSettle(payment);
       await refresh();
       await loadData();
 
       // Return updated debt for detail modal
       const updated = await getDebtWithBalance(payment.debtId);
       return updated;
-    } catch (e) {
-      console.error('Failed to add payment:', e);
-      Alert.alert('Error', 'Failed to add payment');
+    } catch (error: unknown) {
+      console.error('Failed to add payment:', error);
+      
+      if (error instanceof BusinessError) {
+        Alert.alert('Error', error.message);
+      } else {
+        Alert.alert('Error', 'Failed to add payment');
+      }
       return null;
     }
   }, [refresh, loadData]);
@@ -146,13 +166,18 @@ export function useDebts({ type, personTotalKey }: UseDebtsProps) {
     amountOriginal: string;
   }) => {
     try {
-      await createDebt(debt);
+      await DebtService.createDebt(debt);
       await refresh();
       await loadData();
       return true;
-    } catch (e) {
-      console.error('Failed to create debt:', e);
-      Alert.alert('Error', 'Failed to create debt');
+    } catch (error: unknown) {
+      console.error('Failed to create debt:', error);
+      
+      if (error instanceof BusinessError) {
+        Alert.alert('Error', error.message);
+      } else {
+        Alert.alert('Error', 'Failed to create debt');
+      }
       return false;
     }
   }, [refresh, loadData]);

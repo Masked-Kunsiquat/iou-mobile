@@ -1,5 +1,7 @@
+// src/store/ledgerStore.ts
 import { create } from 'zustand';
-import { dashboardTotals, listPeopleWithTotals, listAllPeople } from '../db/repo';
+import { dashboardTotals, listPeopleWithTotals } from '../db/repo';
+import { PersonService } from '../services/PersonService';
 import { Person } from '../models/types';
 
 type Dashboard = { totalIOU: string; totalUOM: string; net: string; };
@@ -17,17 +19,22 @@ export const useLedgerStore = create<State>((set, get) => ({
   dashboard: null,
   people: [],
   contacts: [],
+  
   refresh: async () => {
     try {
+      // Use existing repo functions for dashboard data
+      // Could move this to a service later if needed
       const [d, p] = await Promise.all([dashboardTotals(), listPeopleWithTotals()]);
       set({ dashboard: d, people: p });
     } catch (error) {
       console.error('Failed to refresh dashboard:', error);
     }
   },
+  
   refreshContacts: async () => {
     try {
-      const contacts = await listAllPeople();
+      // Use service layer for contacts
+      const contacts = await PersonService.listAllPeople();
       set({ contacts });
     } catch (error) {
       console.error('Failed to refresh contacts:', error);

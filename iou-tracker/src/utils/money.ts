@@ -1,59 +1,68 @@
+// src/utils/money.ts
 import Decimal from 'decimal.js-light';
 
-/**
- * Create a Decimal instance from string/number
- */
+// Configure decimal.js for money (2 decimal places)
+Decimal.set({ precision: 28, rounding: 4 });
+
 export function d(value: string | number): Decimal {
   return new Decimal(value);
 }
 
-/**
- * Add two decimal amounts (as strings)
- */
 export function add(a: string, b: string): string {
   return d(a).add(d(b)).toFixed(2);
 }
 
-/**
- * Subtract two decimal amounts (as strings)
- */
 export function sub(a: string, b: string): string {
   return d(a).sub(d(b)).toFixed(2);
 }
 
-/**
- * Check if first amount is less than or equal to second
- */
+export function mul(a: string, b: string): string {
+  return d(a).mul(d(b)).toFixed(2);
+}
+
+export function div(a: string, b: string): string {
+  return d(a).div(d(b)).toFixed(2);
+}
+
 export function lte(a: string, b: string): boolean {
   return d(a).lte(d(b));
 }
 
-/**
- * Convert decimal to cents string representation
- */
-export function toCentsStr(amount: string): string {
-  return d(amount).mul(100).toFixed(0);
+export function gte(a: string, b: string): boolean {
+  return d(a).gte(d(b));
 }
 
-/**
- * Format decimal amount for display (e.g., "1234.56" -> "$1,234.56")
- */
-export function formatMoney(amount: string, currency = '$'): string {
-  const num = parseFloat(amount);
-  return `${currency}${num.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+export function lt(a: string, b: string): boolean {
+  return d(a).lt(d(b));
 }
 
-/**
- * Validate that a string represents a valid monetary amount
- */
-export function isValidAmount(amount: string): boolean {
-  try {
-    const decimal = d(amount);
-    return decimal.gte(0) && decimal.decimalPlaces() <= 2;
-  } catch {
-    return false;
+export function gt(a: string, b: string): boolean {
+  return d(a).gt(d(b));
+}
+
+export function eq(a: string, b: string): boolean {
+  return d(a).eq(d(b));
+}
+
+export function abs(a: string): string {
+  return d(a).abs().toFixed(2);
+}
+
+export function toCentsStr(value: string): string {
+  return d(value).toFixed(2);
+}
+
+export function formatMoney(value: string, showSign: boolean = false): string {
+  const decimal = d(value);
+  const formatted = decimal.abs().toFixed(2);
+  
+  if (showSign) {
+    if (decimal.isPositive()) {
+      return `+$${formatted}`;
+    } else if (decimal.isNegative()) {
+      return `-$${formatted}`;
+    }
   }
+  
+  return `$${formatted}`;
 }
