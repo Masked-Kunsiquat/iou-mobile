@@ -1,16 +1,12 @@
 import React from 'react';
-import { ScrollView } from 'react-native';
-import { Appbar, Card, Text } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLedgerStore } from '../store/ledgerStore';
 import { useDebts } from '../hooks/useDebts';
 import { useDebtModal } from '../hooks/useDebtModal';
-import ExpandablePersonCard from '../components/ExpandablePersonCard';
-import DebtDetailModal from '../components/DebtDetailModal';
-import EditDebtModal from '../components/EditDebtModal';
-import PaymentModal from '../components/PaymentModal';
-import DebtModal from '../components/DebtModal';
-import { DebtType } from '../models/types';
+import { DebtHeader } from '../components/debt/DebtHeader';
+import { DebtList } from '../components/debt/DebtList';
+import { DebtModals } from '../components/debt/DebtModals';
+import { DebtLoading } from '../components/debt/DebtLoading';
+import { DebtType, Debt } from '../models/types';
 import { useThemeColors } from '../theme/ThemeProvider';
 
 type DebtsScreenProps = {
@@ -34,7 +30,6 @@ export default function DebtsScreen({
 }: DebtsScreenProps) {
   const { dashboard } = useLedgerStore();
   const colors = useThemeColors();
-  const insets = useSafeAreaInsets();
 
   // Business logic hooks
   const {
@@ -121,111 +116,57 @@ export default function DebtsScreen({
     openNewDebtModal(personId);
   };
 
+  const handleDebtPressWrapper = (debt: Debt) => {
+    handleDebtPress(debt);
+  };
+
+  // Show loading state
   if (loading) {
-    return (
-      <>
-        <Appbar.Header statusBarHeight={insets.top}>
-          <Appbar.BackAction onPress={onBack} />
-          <Appbar.Content title={title} />
-        </Appbar.Header>
-        <ScrollView
-          contentContainerStyle={{ padding: 16, paddingBottom: 16 + insets.bottom }}
-          style={{ backgroundColor: colors.background }}
-        >
-          <Text style={{ color: colors.textSecondary }}>Loading...</Text>
-        </ScrollView>
-      </>
-    );
+    return <DebtLoading title={title} onBack={onBack} />;
   }
 
   const total = totalValue(dashboard ?? {}) ?? '0.00';
 
   return (
     <>
-      <Appbar.Header statusBarHeight={insets.top}>
-        <Appbar.BackAction onPress={onBack} />
-        <Appbar.Content title={title} />
-      </Appbar.Header>
+      <DebtHeader 
+        title={title}
+        total={total}
+        totalLabel={totalLabel}
+        totalColor={totalColor(colors)}
+        onBack={onBack}
+      />
 
-      <ScrollView
-        contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 16 + insets.bottom }}
-        style={{ backgroundColor: colors.background }}
-      >
-        <Card style={{ backgroundColor: colors.surface }}>
-          <Card.Content>
-            <Text
-              variant="headlineSmall"
-              style={{ color: totalColor(colors), textAlign: 'center' }}
-            >
-              {totalLabel}: ${total}
-            </Text>
-          </Card.Content>
-        </Card>
+      <DebtList
+        peopleWithDebts={peopleWithDebts}
+        type={type}
+        personTotalKey={personTotalKey}
+        onDebtPress={handleDebtPressWrapper}
+        onAddDebt={handleAddDebtForPerson}
+      />
 
-        {peopleWithDebts.map(({ person, debts }) => (
-          <ExpandablePersonCard
-            key={person.id}
-            personName={person.name}
-            total={person[personTotalKey] ?? '0.00'}
-            debts={debts}
-            type={type}
-            onAddDebt={() => handleAddDebtForPerson(person.id)}
-            onDebtPress={handleDebtPress}
-          />
-        ))}
-
-        {peopleWithDebts.length === 0 && (
-          <Card style={{ backgroundColor: colors.surface }}>
-            <Card.Content
-              style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 40 }}
-            >
-              <Text variant="titleMedium" style={{ color: colors.textSecondary, marginBottom: 8 }}>
-                {type === 'IOU'
-                  ? "You don't owe anyone money! 🎉"
-                  : 'No one owes you money right now'}
-              </Text>
-              <Text variant="bodyMedium" style={{ color: colors.textDisabled, textAlign: 'center' }}>
-                {type === 'IOU'
-                  ? 'When you borrow money, it will appear here'
-                  : 'When you lend money, it will appear here'}
-              </Text>
-            </Card.Content>
-          </Card>
-        )}
-      </ScrollView>
-
-      {/* Modals */}
-      <DebtDetailModal
-        visible={detailModalVisible}
-        onDismiss={closeDetailModal}
-        debt={selectedDebt}
-        onEdit={openEditFromDetail}
-        onDelete={handleDeleteDebtFromModal}
-        onAddPayment={(debtId) => openPaymentFromDetail(debtId, peopleWithDebts)}
+      <DebtModals
+        detailModalVisible={detailModalVisible}
+        selectedDebt={selectedDebt}
+        onCloseDetailModal={closeDetailModal}
+        onEditFromDetail={openEditFromDetail}
+        onDeleteDebt={handleDeleteDebtFromModal}
+        onAddPaymentFromDetail={openPaymentFromDetail}
         onMarkSettled={handleMarkSettledFromModal}
-      />
-
-      <EditDebtModal
-        visible={editModalVisible}
-        onDismiss={closeEditModal}
-        onSave={handleSaveEdit}
-        debt={editingDebt}
-      />
-
-      <PaymentModal
-        visible={paymentModalVisible}
-        onDismiss={closePaymentModal}
-        onSave={handleSavePayment}
-        debt={paymentDebt}
-      />
-
-      <DebtModal
-        visible={newDebtModalVisible}
-        onDismiss={closeNewDebtModal}
-        onSave={handleSaveNewDebt}
+        editModalVisible={editModalVisible}
+        editingDebt={editingDebt}
+        onCloseEditModal={closeEditModal}
+        onSaveEdit={handleSaveEdit}
+        paymentModalVisible={paymentModalVisible}
+        paymentDebt={paymentDebt}
+        onClosePaymentModal={closePaymentModal}
+        onSavePayment={handleSavePayment}
+        newDebtModalVisible={newDebtModalVisible}
+        newDebtPersonId={newDebtPersonId}
         defaultType={type}
-        fixedType={type}
-        fixedPersonId={newDebtPersonId || undefined}
+        onCloseNewDebtModal={closeNewDebtModal}
+        onSaveNewDebt={handleSaveNewDebt}
+        peopleWithDebts={peopleWithDebts}
       />
     </>
   );
