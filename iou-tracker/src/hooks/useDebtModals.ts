@@ -1,6 +1,43 @@
 import { useState, useCallback } from 'react';
-import { Debt } from '../models/types';
+import { DebtType, Debt } from '../models/types';
+import { createDebt } from '../db/repo';
+import { useLedgerStore } from '../store/ledgerStore';
 
+export function useDebtModals() {
+  const { refresh } = useLedgerStore();
+  const [debtModalVisible, setDebtModalVisible] = useState(false);
+  const [debtType, setDebtType] = useState<DebtType>('IOU');
+
+  const openDebtModal = useCallback((type: DebtType) => {
+    setDebtType(type);
+    setDebtModalVisible(true);
+  }, []);
+
+  const closeDebtModal = useCallback(() => {
+    setDebtModalVisible(false);
+  }, []);
+
+  const handleSaveDebt = useCallback(async (debt: {
+    type: DebtType;
+    personId: string;
+    description: string;
+    amountOriginal: string;
+  }) => {
+    await createDebt(debt);
+    await refresh();
+    closeDebtModal();
+  }, [refresh, closeDebtModal]);
+
+  return {
+    debtModalVisible,
+    debtType,
+    openDebtModal,
+    closeDebtModal,
+    handleSaveDebt,
+  };
+}
+
+// ADDITIONAL hook for complex debt screen modals
 export function useDebtModal() {
   // Detail Modal State
   const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLedgerStore } from '../store/ledgerStore';
 import { useDebts } from '../hooks/useDebts';
-import { useDebtModal } from '../hooks/useDebtModal';
+import { useDebtModal } from '../hooks/useDebtModals';
 import { DebtHeader } from '../components/debt/DebtHeader';
 import { DebtList } from '../components/debt/DebtList';
 import { DebtModals } from '../components/debt/DebtModals';

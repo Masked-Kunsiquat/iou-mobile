@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { ScrollView, View } from 'react-native';
 import {
   Card,
@@ -11,11 +11,12 @@ import { useLedgerStore } from '../store/ledgerStore';
 import PersonModal from '../components/PersonModal';
 import DebtModal from '../components/DebtModal';
 import FABMenu from '../components/FABMenu';
-import { upsertPerson, createDebt } from '../db/repo';
-import { Person, DebtType } from '../models/types';
 import { useThemeColors } from '../theme/ThemeProvider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ChartCard from '../components/ChartCard';
+import { useDashboard } from '../hooks/useDashboard';
+import { usePersonModals } from '../hooks/usePersonModals';
+import { useDebtModals } from '../hooks/useDebtModals';
 
 interface DashboardProps {
   onNavigateToIOUs?: () => void;
@@ -30,235 +31,209 @@ export default function Dashboard({
   onNavigateToContacts,
   onNavigateToSettings,
 }: DashboardProps) {
-  const { dashboard, refresh } = useLedgerStore();
+  const { people } = useLedgerStore();
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
 
-  const [personModalVisible, setPersonModalVisible] = useState(false);
-  const [debtModalVisible, setDebtModalVisible] = useState(false);
-  const [editingPerson, setEditingPerson] = useState<Person | null>(null);
-  const [debtType, setDebtType] = useState<DebtType>('IOU');
+  // Use extracted hooks
+  const { data: dashboard, loading: dashboardLoading } = useDashboard();
+  const {
+    personModalVisible,
+    editingPerson,
+    openPersonModal,
+    closePersonModal,
+    handleSavePerson,
+  } = usePersonModals();
+  const {
+    debtModalVisible,
+    debtType,
+    openDebtModal,
+    closeDebtModal,
+    handleSaveDebt,
+  } = useDebtModals();
 
-  useEffect(() => {
-    refresh();
-  }, []);
+  const handleAddIOU = () => openDebtModal('IOU');
+  const handleAddUOM = () => openDebtModal('UOM');
+  const handleAddContact = () => openPersonModal();
 
-  const handleSavePerson = async (
-    person: Omit<Person, 'id'> & Partial<Pick<Person, 'id'>>
-  ) => {
-    await upsertPerson(person);
-    await refresh();
-  };
-
-  const handleSaveDebt = async (debt: {
-    type: DebtType;
-    personId: string;
-    description: string;
-    amountOriginal: string;
-  }) => {
-    await createDebt(debt);
-    await refresh();
-  };
-
-  const handleAddIOU = () => {
-    setDebtType('IOU');
-    setDebtModalVisible(true);
-  };
-
-  const handleAddUOM = () => {
-    setDebtType('UOM');
-    setDebtModalVisible(true);
-  };
-
-  const handleAddContact = () => {
-    setEditingPerson(null);
-    setPersonModalVisible(true);
-  };
-
-  const net = dashboard?.net ? parseFloat(dashboard.net) : 0;
-  const netColor = net >= 0 ? colors.uomColor : colors.iouColor;
+  if (dashboardLoading || !dashboard) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* Header with settings button */}
       <View
         style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingTop: insets.top + 8,
+          paddingTop: insets.top,
           paddingHorizontal: 16,
-          paddingBottom: 8,
-          backgroundColor: colors.surface,
+          paddingBottom: 16,
+          backgroundColor: colors.primary,
         }}
       >
-        <Text variant="headlineMedium" style={{ color: colors.textPrimary }}>
-          Dashboard
-        </Text>
-        {onNavigateToSettings && (
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: 16,
+          }}
+        >
+          <Text variant="headlineMedium" style={{ color: colors.onPrimary, fontWeight: 'bold' }}>
+            Dashboard
+          </Text>
           <IconButton
             icon="cog"
-            mode="contained-tonal"
-            size={24}
+            iconColor={colors.onPrimary}
             onPress={onNavigateToSettings}
-            accessibilityLabel="Open settings"
-            accessibilityRole="button"
-            accessible={true}
           />
-        )}
+        </View>
       </View>
 
-      <ScrollView
-        contentContainerStyle={{
-          padding: 16,
-          gap: 16,
-          paddingBottom: 16 + insets.bottom,
-        }}
-      >
-        {/* Chart Card */}
-        <ChartCard 
-          totalIOU={dashboard?.totalIOU ?? '0.00'}
-          totalUOM={dashboard?.totalUOM ?? '0.00'}
-        />
-
-        {/* Totals Section */}
-        <Card style={{ backgroundColor: colors.surface }}>
-          <Card.Content style={{ gap: 16 }}>
-            <Text variant="titleLarge" style={{ color: colors.textPrimary }}>
+      <ScrollView style={{ flex: 1, padding: 16 }}>
+        <Card style={{ marginBottom: 16 }}>
+          <Card.Content>
+            <Text variant="titleMedium" style={{ marginBottom: 8 }}>
               Overview
             </Text>
-
-            <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
-              <View style={{ alignItems: 'center' }}>
-                <Text variant="labelMedium" style={{ color: colors.textSecondary }}>
-                  I OWE
-                </Text>
-                <Text
-                  variant="headlineSmall"
-                  style={{ color: colors.iouColor, fontWeight: 'bold' }}
-                >
-                  ${dashboard?.totalIOU ?? '0.00'}
-                </Text>
-              </View>
-
-              <View style={{ height: 40, width: 1, backgroundColor: colors.outline }} />
-
-              <View style={{ alignItems: 'center' }}>
-                <Text variant="labelMedium" style={{ color: colors.textSecondary }}>
-                  OWED TO ME
-                </Text>
-                <Text
-                  variant="headlineSmall"
-                  style={{ color: colors.uomColor, fontWeight: 'bold' }}
-                >
-                  ${dashboard?.totalUOM ?? '0.00'}
-                </Text>
-              </View>
-
-              <View style={{ height: 40, width: 1, backgroundColor: colors.outline }} />
-
-              <View style={{ alignItems: 'center' }}>
-                <Text variant="labelMedium" style={{ color: colors.textSecondary }}>
-                  NET BALANCE
-                </Text>
-                <Text
-                  variant="headlineSmall"
-                  style={{ color: netColor, fontWeight: 'bold' }}
-                >
-                  ${dashboard?.net ?? '0.00'}
-                </Text>
-              </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text>Money I Owe (IOUs):</Text>
+              <Text style={{ color: '#F44336', fontWeight: 'bold' }}>
+                {dashboard.formattedIOU}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text>Money Owed to Me (UOMs):</Text>
+              <Text style={{ color: '#4CAF50', fontWeight: 'bold' }}>
+                {dashboard.formattedUOM}
+              </Text>
+            </View>
+            <Divider style={{ marginVertical: 8 }} />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text variant="titleMedium">Net Position:</Text>
+              <Text
+                variant="titleMedium"
+                style={{ color: dashboard.netColor, fontWeight: 'bold' }}
+              >
+                {dashboard.formattedNet}
+              </Text>
             </View>
           </Card.Content>
         </Card>
 
-        {/* Quick Actions */}
-        <Card style={{ backgroundColor: colors.surface }}>
-          <Card.Content style={{ gap: 16 }}>
-            <Text variant="titleLarge" style={{ color: colors.textPrimary }}>
+        <ChartCard 
+          totalIOU={dashboard.totalIOU}
+          totalUOM={dashboard.totalUOM}
+        />
+
+        <Card style={{ marginBottom: 16 }}>
+          <Card.Content>
+            <Text variant="titleMedium" style={{ marginBottom: 16 }}>
               Quick Actions
             </Text>
-
-            <View style={{ gap: 8 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
               <TouchableRipple
                 onPress={onNavigateToIOUs}
                 style={{
-                  padding: 12,
+                  flex: 1,
+                  padding: 16,
+                  backgroundColor: colors.errorContainer,
                   borderRadius: 8,
-                  backgroundColor: colors.iouContainer,
+                  marginRight: 8,
                 }}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <Text variant="titleMedium" style={{ color: colors.textPrimary, flex: 1 }}>
-                    View My IOUs
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={{ color: colors.textPrimary, fontWeight: 'bold' }}>
+                    View IOUs
                   </Text>
-                  <Text variant="headlineSmall" style={{ color: colors.iouColor }}>
-                    ${dashboard?.totalIOU ?? '0.00'}
+                  <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                    Money I Owe
                   </Text>
                 </View>
               </TouchableRipple>
-
               <TouchableRipple
                 onPress={onNavigateToUOMs}
                 style={{
-                  padding: 12,
+                  flex: 1,
+                  padding: 16,
+                  backgroundColor: colors.primaryContainer,
                   borderRadius: 8,
-                  backgroundColor: colors.uomContainer,
+                  marginLeft: 8,
                 }}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <Text variant="titleMedium" style={{ color: colors.textPrimary, flex: 1 }}>
-                    View Money Owed to Me
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={{ color: colors.textPrimary, fontWeight: 'bold' }}>
+                    View UOMs
                   </Text>
-                  <Text variant="headlineSmall" style={{ color: colors.uomColor }}>
-                    ${dashboard?.totalUOM ?? '0.00'}
+                  <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                    Money Owed to Me
                   </Text>
-                </View>
-              </TouchableRipple>
-
-              <TouchableRipple
-                onPress={onNavigateToContacts}
-                style={{
-                  padding: 12,
-                  borderRadius: 8,
-                  backgroundColor: colors.surfaceVariant,
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <Text variant="titleMedium" style={{ color: colors.textPrimary, flex: 1 }}>
-                    Manage Contacts
-                  </Text>
-                  <IconButton icon="chevron-right" size={20} />
                 </View>
               </TouchableRipple>
             </View>
+          </Card.Content>
+        </Card>
+
+        <Card style={{ marginBottom: 100 }}>
+          <Card.Content>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 16,
+              }}
+            >
+              <Text variant="titleMedium">People ({people.length})</Text>
+              <TouchableRipple onPress={onNavigateToContacts}>
+                <Text style={{ color: colors.primary }}>View All</Text>
+              </TouchableRipple>
+            </View>
+            {people.slice(0, 3).map((person) => (
+              <View
+                key={person.id}
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  paddingVertical: 8,
+                }}
+              >
+                <Text>{person.name}</Text>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ color: '#F44336', fontSize: 12 }}>
+                    IOU: {dashboard.formattedIOU}
+                  </Text>
+                  <Text style={{ color: '#4CAF50', fontSize: 12 }}>
+                    UOM: {dashboard.formattedUOM}
+                  </Text>
+                </View>
+              </View>
+            ))}
           </Card.Content>
         </Card>
       </ScrollView>
 
-      {/* Floating Action Button */}
       <FABMenu
         onAddIOU={handleAddIOU}
         onAddUOM={handleAddUOM}
         onAddContact={handleAddContact}
       />
 
-      {/* Modals */}
       <PersonModal
         visible={personModalVisible}
-        onDismiss={() => {
-          setPersonModalVisible(false);
-          setEditingPerson(null);
-        }}
-        onSave={handleSavePerson}
         editPerson={editingPerson}
+        onDismiss={closePersonModal}
+        onSave={handleSavePerson}
       />
 
       <DebtModal
         visible={debtModalVisible}
-        onDismiss={() => setDebtModalVisible(false)}
-        onSave={handleSaveDebt}
         defaultType={debtType}
+        onDismiss={closeDebtModal}
+        onSave={handleSaveDebt}
       />
     </View>
   );

@@ -70,6 +70,12 @@ export function useDebts({ type, personTotalKey }: UseDebtsProps) {
     refresh();
   }, [refresh]);
 
+  const refreshData = useCallback(async () => {
+    await refresh();
+    // Data will be reloaded via the people effect above
+  }, [refresh]);
+
+  // Business logic actions
   const handleEditDebt = useCallback(async (
     debtId: string,
     updates: { description: string; amountOriginal: string; dueAt?: string | null }
@@ -157,7 +163,7 @@ export function useDebts({ type, personTotalKey }: UseDebtsProps) {
     loading,
     
     // Actions
-    loadData,
+    refresh: refreshData,
     handleEditDebt,
     handleDeleteDebt,
     handleMarkSettled,
